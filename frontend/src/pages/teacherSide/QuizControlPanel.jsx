@@ -15,6 +15,7 @@ import {
   AlertCircle,
   Eye,
   Settings as SettingsIcon,
+  Loader2,
 } from "lucide-react";
 
 export default function QuizControlPanel() {
@@ -282,9 +283,9 @@ export default function QuizControlPanel() {
 
   if (loading) {
     return (
-      <div className="bg-white p-8 rounded-2xl shadow-md">
+      <div className="p-8">
         <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+          <Loader2 className="animate-spin h-8 w-8 text-yellow-500"></Loader2>
           <span className="ml-3 text-gray-600">Loading Control Panel...</span>
         </div>
       </div>
@@ -316,27 +317,27 @@ export default function QuizControlPanel() {
   };
 
   return (
-    <div className="bg-white p-8 rounded-2xl shadow-md max-w-7xl mx-auto">
+    <div className="p-8 font-Outfit">
       <div className="flex items-center justify-between mb-6">
         <button
           onClick={() => navigate("/teacher/quizzes")}
-          className="flex items-center gap-2 text-gray-600 hover:text-gray-800"
+          className="flex items-center gap-2 text-subtext hover:text-subsubtext"
         >
           <ArrowLeft className="w-5 h-5" />
           Back to Manage Quizzes
         </button>
 
         <div className="flex items-center gap-2">
-          <Zap className="w-5 h-5 text-purple-600" />
-          <span className="font-semibold text-purple-700">Live Control Panel</span>
+          <Zap className="w-5 h-5 text-yellow-500" />
+          <span className="font-semibold text-yellow-500">Live Control Panel</span>
         </div>
       </div>
 
-      <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white p-6 rounded-xl mb-6">
+      <div className="bg-gradient-to-r from-yellow-600 to-yellow-400 text-white p-6 rounded-xl mb-6">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold">{quiz.title}</h2>
-            <p className="text-purple-100 text-sm mt-1">
+            <p className="text-white text-sm mt-1">
               Class: {classData.name} • {quiz.questions?.length || 0} questions
             </p>
           </div>
@@ -344,9 +345,9 @@ export default function QuizControlPanel() {
             <div
               className={`px-4 py-2 rounded-lg font-bold text-lg ${
                 quizSession.status === "active"
-                  ? "bg-green-400 text-green-900"
+                  ? "bg-green-100 text-green-900"
                   : quizSession.status === "ended"
-                  ? "bg-red-400 text-red-900"
+                  ? "bg-red-100 text-red-900"
                   : "bg-gray-300 text-gray-700"
               }`}
             >

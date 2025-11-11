@@ -10,13 +10,13 @@ import LOGO from "../../assets/iQuizU.svg";
 
 export default function FeaturesPage() {
     return (
-        <div className="bg-background min-h-screen pt-6 w-full font-Outfit">
+        <div className="bg-gradient-to-b from-background via-background to-green-200 min-h-screen pt-6 w-full font-Outfit">
             <Navbar />
 
             <div className="px-10 md:px-40 mx-auto mt-10 md:mt-20">
                 <h1 className="text-5xl md:text-7xl font-semibold">Features</h1>
                 <p className="text-base md:text-2xl mt-2 font-light">Everything you need to create engaging quizzes and track learning progress</p>
-                <div className="flex flex-row md:grid-cols-2 items-center justify-center gap-10 w-full mt-10">
+                <div className="flex flex-col md:flex-row items-center justify-center gap-10 w-full mt-10">
                     <div className="bg-components rounded-3xl flex flex-col">
                         <Brain className="h-20 w-20 mt-6 mx-auto"/>
                         <h1 className="text-2xl font-bold mt-4 mx-auto">Smart Quiz Creation</h1>

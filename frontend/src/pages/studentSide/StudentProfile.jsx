@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Loader2, CircleUserRound } from "lucide-react";
+import { Loader2, CircleUserRound, LibraryBig } from "lucide-react";
 import { doc, updateDoc, setDoc, getDoc } from "firebase/firestore";
 import { db } from "../../firebase/firebaseConfig";
 
@@ -235,7 +235,7 @@ export default function StudentProfile({ user, userDoc }) {
                     <h2 className="text-xl md:text-2xl text-title font-semibold">User Information</h2>
                     {editing ? (
                         <div className="mt-4 space-y-4">
-                            {/* ✅ NEW: Student Number - Read-only */}
+
                             <div className="flex flex-row gap-4 mt-4 items-center">
                                 <label className="w-36 text-subtext">Student No:</label>
                                 <input
@@ -267,7 +267,6 @@ export default function StudentProfile({ user, userDoc }) {
                                 />
                             </div>
                             
-                            {/* ✅ NEW: Year Level */}
                             <div className="flex flex-row gap-4 mt-4 items-center">
                                 <label className="w-36 text-subtext">Year Level:</label>
                                 <select
@@ -284,7 +283,6 @@ export default function StudentProfile({ user, userDoc }) {
                                 </select>
                             </div>
                             
-                            {/* ✅ NEW: Gender */}
                             <div className="flex flex-row gap-4 mt-4 items-center">
                                 <label className="w-36 text-subtext">Gender:</label>
                                 <select
@@ -322,7 +320,7 @@ export default function StudentProfile({ user, userDoc }) {
                         </div>
                     ) : (
                         <div className="mt-4 space-y-6">
-                            {/* ✅ NEW: Display Student Number */}
+     
                             <div className="flex items-center gap-4">
                                 <span className="w-36 text-subtext">Student No:</span>
                                 <span className="font-medium">{studentNo || "-"}</span>
@@ -338,13 +336,11 @@ export default function StudentProfile({ user, userDoc }) {
                                 <span className="font-medium">{department || "-"}</span>
                             </div>
                             
-                            {/* ✅ FIXED: Display Year with proper formatting */}
                             <div className="flex items-center gap-4">
                                 <span className="w-36 text-subtext">Year Level:</span>
                                 <span className="font-medium">{displayYear(year)}</span>
                             </div>
                             
-                            {/* ✅ NEW: Display Gender */}
                             <div className="flex items-center gap-4">
                                 <span className="w-36 text-subtext">Gender:</span>
                                 <span className="font-medium">{gender || "-"}</span>
@@ -371,7 +367,7 @@ export default function StudentProfile({ user, userDoc }) {
                             className="w-52 h-52 rounded-full object-cover shadow-lg ring-2 ring-white/20"
                         />
                     ) : (
-                        <div className="w-52 h-52 text-8xl bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-white font-bold shadow-lg ring-2 ring-white/20">
+                        <div className="w-52 h-52 text-8xl bg-gradient-to-br from-green-300 to-green-600 rounded-full flex items-center justify-center text-white font-bold shadow-lg ring-2 ring-white/20">
                             {userInitial}
                         </div>
                     )}
@@ -387,7 +383,7 @@ export default function StudentProfile({ user, userDoc }) {
                     <button
                         onClick={() => fileInputRef.current?.click()}
                         disabled={uploading}
-                        className="bg-button px-6 py-4 rounded-xl text-base text-white font-semibold hover:bg-buttonHover transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        className="bg-blue-500 px-6 py-4 rounded-xl text-base text-white font-semibold hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
                         {uploading ? (
                             <>
@@ -405,11 +401,9 @@ export default function StudentProfile({ user, userDoc }) {
                 <h1 className="text-xl md:text-2xl font-semibold text-title">
                     Educational Background
                 </h1>
-                <div className="flex flex-row items-center justify-between mt-4">
-                    <p className="text-subtext">No educational background added yet.</p>
-                    <button className="mt-4 bg-accent px-4 py-2 rounded-lg text-white font-semibold hover:bg-accentHover transition">
-                        Add Educational Background
-                    </button>
+                <div className="flex flex-row items-center justify-center mt-4 border-dashed gap-2 border-stroke/50 border-2 rounded-2xl p-10">
+                    <LibraryBig className="w-10 h-10 text-subsubtext opacity-50"/>
+                    <p className="text-subsubtext opacity-80">No educational background added yet.</p>
                 </div>
             </div>
 
@@ -434,7 +428,7 @@ export default function StudentProfile({ user, userDoc }) {
 
             <div className="flex gap-3">
                 <button
-                    className="bg-accent px-4 py-2 rounded-lg text-white font-semibold hover:bg-accentHover transition mt-4"
+                    className="bg-blue-500 px-4 py-2 rounded-lg text-white font-semibold hover:bg-blue-700 transition mt-4"
                     onClick={() => {
                         if (editing) {
                             handleSaveProfile();

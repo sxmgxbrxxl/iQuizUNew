@@ -414,8 +414,8 @@ export default function StudentQuizzes({ user, userDoc }) {
             <div className="flex flex-row items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
                 <FileText className="text-blue-500 w-6 h-6 sm:w-8 sm:h-8" />
                 <div className="flex flex-col">
-                    <h1 className="text-xl sm:text-2xl font-bold text-title">Quizzes</h1>
-                    <p className="text-xs sm:text-sm md:text-base font-light text-subtext">
+                    <h1 className="text-2xl font-bold text-title">Quizzes</h1>
+                    <p className="text-md font-light text-subtext">
                         View your assigned quizzes here.
                     </p>
                 </div>
@@ -425,14 +425,14 @@ export default function StudentQuizzes({ user, userDoc }) {
             <section className="bg-components rounded-xl sm:rounded-2xl shadow-md p-4 sm:p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-4 sm:mb-6">
                     <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800 flex items-center gap-2">
-                        <BookOpen className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 text-indigo-600 flex-shrink-0" />
+                        <BookOpen className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 text-blue-600 flex-shrink-0" />
                         <span className="leading-tight">
                             My Assigned Quizzes 
                             <span className="block sm:inline sm:ml-1 text-sm sm:text-base md:text-lg text-gray-600">(Self-Paced)</span>
                         </span>
                     </h3>
                     {assignedQuizzes.length > 0 && (
-                        <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs sm:text-sm font-bold self-start sm:self-auto whitespace-nowrap">
+                        <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs sm:text-sm font-bold self-start sm:self-auto whitespace-nowrap">
                             {assignedQuizzes.filter((q) => !q.completed).length} Pending
                         </span>
                     )}
@@ -440,7 +440,7 @@ export default function StudentQuizzes({ user, userDoc }) {
 
                 {loading ? (
                     <div className="flex flex-col sm:flex-row items-center justify-center py-8 sm:py-12 gap-2">
-                        <Loader2 className="w-6 h-6 sm:w-8 sm:h-8 animate-spin text-indigo-600" />
+                        <Loader2 className="w-6 h-6 sm:w-8 sm:h-8 animate-spin text-blue-600" />
                         <span className="text-sm sm:text-base text-gray-600">Loading your quizzes...</span>
                     </div>
                 ) : assignedQuizzes.length === 0 ? (
@@ -463,7 +463,7 @@ export default function StudentQuizzes({ user, userDoc }) {
                                     className={`border-2 rounded-lg sm:rounded-xl p-4 sm:p-5 transition-all ${
                                         quiz.completed
                                             ? "border-gray-200 bg-gray-50"
-                                            : "border-indigo-200 bg-white hover:shadow-md"
+                                            : "border-blue-200 bg-white hover:shadow-md"
                                     }`}
                                 >
                                     <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
@@ -480,7 +480,7 @@ export default function StudentQuizzes({ user, userDoc }) {
 
                                             {/* Info Section */}
                                             <div className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-gray-600 mb-3">
-                                                <p className="font-semibold text-indigo-700 break-words">
+                                                <p className="font-semibold text-blue-700 break-words">
                                                     📚 {quiz.className}
                                                     {quiz.subject && ` • ${quiz.subject}`}
                                                 </p>
@@ -547,7 +547,7 @@ export default function StudentQuizzes({ user, userDoc }) {
                                                     className={`w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 rounded-lg font-semibold text-sm sm:text-base transition ${
                                                         hasProgress
                                                             ? "bg-yellow-600 text-white hover:bg-yellow-700 active:bg-yellow-800"
-                                                            : "bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-800"
+                                                            : "bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800"
                                                     }`}
                                                 >
                                                     {hasProgress ? (

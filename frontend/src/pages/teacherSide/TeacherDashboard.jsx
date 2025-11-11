@@ -1,7 +1,7 @@
 import Sidebar from "../../components/Sidebar";
 import { Outlet, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { db } from "../../firebase/firebaseConfig";
 import { School, NotebookPen, Users } from "lucide-react";
 
@@ -20,71 +20,84 @@ export default function TeacherDashboard({ user, userDoc }) {
   // 🔹 Get teacherId
   const teacherId = userDoc?.id || user?.uid;
 
-  // 🔹 Fetch total number of classes
+  // 🔹 Real-time fetch total number of classes
   useEffect(() => {
-    const fetchTotalClasses = async () => {
-      if (!teacherId) return;
-      try {
-        setLoadingClasses(true);
-        const q = query(collection(db, "classes"), where("teacherId", "==", teacherId));
-        const snapshot = await getDocs(q);
+    if (!teacherId) {
+      setLoadingClasses(false);
+      return;
+    }
+
+    setLoadingClasses(true);
+    const q = query(collection(db, "classes"), where("teacherId", "==", teacherId));
+    
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
         setTotalClasses(snapshot.size);
-      } catch (error) {
+        setLoadingClasses(false);
+      },
+      (error) => {  
         console.error("Error fetching classes:", error);
-      } finally {
         setLoadingClasses(false);
       }
-    };
+    );
 
-    fetchTotalClasses();
-  }, [teacherId]);
+    return () => unsubscribe();
+  }, [teacherId, location.pathname]);
 
-  // 🔹 Fetch total number of quizzes
+  // 🔹 Real-time fetch total number of quizzes
   useEffect(() => {
-    const fetchTotalQuizzes = async () => {
-      if (!teacherId) return;
-      try {
-        setLoadingQuizzes(true);
-        const q = query(collection(db, "quizzes"), where("teacherId", "==", teacherId));
-        const snapshot = await getDocs(q);
+    if (!teacherId) {
+      setLoadingQuizzes(false);
+      return;
+    }
+
+    setLoadingQuizzes(true);
+    const q = query(collection(db, "quizzes"), where("teacherId", "==", teacherId));
+    
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
         setTotalQuizzes(snapshot.size);
-      } catch (error) {
+        setLoadingQuizzes(false);
+      },
+      (error) => {
         console.error("Error fetching quizzes:", error);
-      } finally {
         setLoadingQuizzes(false);
       }
-    };
+    );
 
-    fetchTotalQuizzes();
-  }, [teacherId]);
+    return () => unsubscribe();
+  }, [teacherId, location.pathname]);
 
-  // 🔹 Fetch total number of students through classes
+  // 🔹 Real-time fetch total number of students through classes
   useEffect(() => {
-    const fetchTotalStudents = async () => {
-      if (!teacherId) return;
-      try {
-        setLoadingStudents(true);
-        
-        // Get all classes for this teacher
-        const classesQuery = query(collection(db, "classes"), where("teacherId", "==", teacherId));
-        const classesSnapshot = await getDocs(classesQuery);
-        
-        // Sum up studentCount from all classes
+    if (!teacherId) {
+      setLoadingStudents(false);
+      return;
+    }
+
+    setLoadingStudents(true);
+    const q = query(collection(db, "classes"), where("teacherId", "==", teacherId));
+    
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
         let totalStudentCount = 0;
-        classesSnapshot.forEach(doc => {
+        snapshot.forEach(doc => {
           totalStudentCount += doc.data().studentCount || 0;
         });
-        
         setTotalStudents(totalStudentCount);
-      } catch (error) {
+        setLoadingStudents(false);
+      },
+      (error) => {
         console.error("Error fetching students:", error);
-      } finally {
         setLoadingStudents(false);
       }
-    };
+    );
 
-    fetchTotalStudents();
-  }, [teacherId]);
+    return () => unsubscribe();
+  }, [teacherId, location.pathname]);
 
   // 🔹 Sidebar width handling
   useEffect(() => {
@@ -117,7 +130,7 @@ export default function TeacherDashboard({ user, userDoc }) {
 
   return (
     <div className="flex h-screen bg-background">
-      <Sidebar />
+      <Sidebar user={user} userDoc={userDoc}/>
 
       <div
         className="flex-1 overflow-y-auto transition-all duration-300"

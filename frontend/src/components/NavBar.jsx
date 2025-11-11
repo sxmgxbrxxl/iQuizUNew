@@ -105,7 +105,7 @@ export default function Navbar() {
       <div className="hidden md:block">
         <button
           onClick={() => handleNav('/login')}
-          className="bg-button px-6 py-2 rounded-full font-semibold text-white hover:opacity-90"
+          className="bg-button px-6 py-2 rounded-full font-semibold text-white transform hover:scale-105 hover:shadow-lg active:scale-95 duration-200"
         >
           Log In
         </button>

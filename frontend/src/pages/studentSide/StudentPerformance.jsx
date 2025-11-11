@@ -18,6 +18,7 @@ import {
     TrendingUp,
     Zap,
     NotebookPen,
+    Lightbulb,
 } from "lucide-react";
 
 export default function StudentPeformance({ user, userDoc }) {
@@ -376,7 +377,7 @@ export default function StudentPeformance({ user, userDoc }) {
             </div>
 
             {/* Quiz Analytics Section */}
-            <section className="bg-white rounded-2xl shadow-md p-6">
+            <section className="bg-components rounded-2xl shadow-md p-6">
 
             {analytics.totalQuizzes === 0 ? (
                 <div className="text-center py-8 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
@@ -388,16 +389,16 @@ export default function StudentPeformance({ user, userDoc }) {
             ) : (
                 <div className="space-y-4">
                 {/* Summary Card */}
-                <div className="bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-xl p-5 text-white">
+                <div className="bg-gradient-to-r from-blue-600 to-blue-400 rounded-xl p-5 text-white">
                     <div className="flex items-center justify-between">
                     <div>
-                        <p className="text-indigo-100 text-sm font-semibold">Overall Average</p>
+                        <p className="text-white text-sm font-semibold">Overall Average</p>
                         <p className="text-4xl font-bold mt-1">{analytics.overallAvgScore}%</p>
-                        <p className="text-indigo-100 text-xs mt-2">
+                        <p className="text-white text-xs mt-2">
                         {analytics.totalQuizzes} quiz{analytics.totalQuizzes !== 1 ? "zes" : ""} taken
                         </p>
                     </div>
-                    <TrendingUp className="w-16 h-16 opacity-20" />
+                    <TrendingUp className="w-16 h-16 opacity-50 mr-4" />
                     </div>
                 </div>
 
@@ -408,7 +409,7 @@ export default function StudentPeformance({ user, userDoc }) {
                     <div className="bg-green-50 rounded-lg p-4 border border-green-200">
                         <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
-                            <BookOpen className="w-5 h-5 text-green-600" />
+                            <Lightbulb className="w-5 h-5 text-green-600" />
                             <span className="font-semibold text-gray-800 text-sm">Self-Paced</span>
                         </div>
                         <span className="text-2xl font-bold text-green-700">{analytics.asyncQuizzes.avgScore}%</span>
@@ -419,13 +420,13 @@ export default function StudentPeformance({ user, userDoc }) {
 
                     {/* Live Quizzes */}
                     {analytics.syncQuizzes.completed > 0 && (
-                    <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                    <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
                         <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
-                            <Zap className="w-5 h-5 text-purple-600" />
+                            <Zap className="w-5 h-5 text-yellow-600" />
                             <span className="font-semibold text-gray-800 text-sm">Live Quiz</span>
                         </div>
-                        <span className="text-2xl font-bold text-purple-700">{analytics.syncQuizzes.avgScore}%</span>
+                        <span className="text-2xl font-bold text-yellow-700">{analytics.syncQuizzes.avgScore}%</span>
                         </div>
                         <p className="text-xs text-gray-600">{analytics.syncQuizzes.completed} quiz{analytics.syncQuizzes.completed !== 1 ? "zes" : ""}</p>
                     </div>
@@ -443,9 +444,17 @@ export default function StudentPeformance({ user, userDoc }) {
                             <p className="text-sm font-semibold text-gray-800 truncate">
                                 Quiz #{quizSubmissions.indexOf(submission) + 1}
                             </p>
-                            <p className="text-xs text-gray-500">
-                                {submission.quizMode === "asynchronous" ? "📚 Self-Paced" : "⚡ Live"}
-                            </p>
+                            <div className="flex flex-row items-center gap-1">
+                                {submission.quizMode === "asynchronous" ? (
+                                    <Lightbulb className="w-3 h-3 text-blue-500" />
+                                ) : (
+                                    <Zap className="w-3 h-3 text-yellow-500" />
+                                )}
+                                <p className="text-xs text-gray-500">
+                                    {submission.quizMode === "asynchronous" ? "Self-Paced" : "Live"}
+                                </p>
+                            </div>
+                            
                             </div>
                             <div className="text-right">
                             <p className={`text-lg font-bold ${getScoreColor(submission.base50ScorePercentage)}`}>

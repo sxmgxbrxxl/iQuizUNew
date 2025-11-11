@@ -26,6 +26,7 @@ import {
   Trophy,
   Eye,
   AlertCircle,
+  Loader2,
 } from "lucide-react";
 
 export default function AssignQuiz() {
@@ -458,9 +459,9 @@ export default function AssignQuiz() {
 
   if (loading) {
     return (
-      <div className="bg-white p-8 rounded-2xl shadow-md">
+      <div className="p-8 items-center justify-center">
         <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <Loader2 className="animate-spin h-8 w-8 text-accent"></Loader2>
           <span className="ml-3 text-gray-600">Loading...</span>
         </div>
       </div>
@@ -472,11 +473,11 @@ export default function AssignQuiz() {
   }
 
   return (
-    <div className="bg-white p-8 rounded-2xl shadow-md max-w-6xl mx-auto">
+    <div className="p-8 font-Outfit">
       <div className="flex items-center justify-between mb-6">
         <button
           onClick={handleBack}
-          className="flex items-center gap-2 text-gray-600 hover:text-gray-800"
+          className="flex items-center gap-2 text-subtext hover:text-subsubtext"
         >
           <ArrowLeft className="w-5 h-5" />
           {!selectedClass ? "Back to Manage Quizzes" : "Back to Classes"}
@@ -485,16 +486,16 @@ export default function AssignQuiz() {
         <div className="flex items-center gap-2 text-sm">
           <span
             className={`px-3 py-1 rounded-full ${
-              !selectedClass ? "bg-purple-600 text-white" : "bg-green-500 text-white"
+              !selectedClass ? "bg-blue-400 text-white" : "bg-green-500 text-white"
             }`}
           >
-            {!selectedClass ? "1" : "✓"} Select Class
+            {!selectedClass ? "1." : "✓"} Select Class
           </span>
           <span className="text-gray-400">→</span>
           <span
             className={`px-3 py-1 rounded-full ${
               selectedClass
-                ? "bg-purple-600 text-white"
+                ? "bg-blue-400 text-white"
                 : "bg-gray-200 text-gray-600"
             }`}
           >
@@ -503,14 +504,14 @@ export default function AssignQuiz() {
         </div>
       </div>
 
-      <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white p-6 rounded-xl mb-6">
+      <div className="bg-gradient-to-r from-green-600 to-green-800 text-white p-6 rounded-xl mb-6">
         <div className="flex items-center gap-3">
           <Users className="w-8 h-8" />
           <div>
             <h2 className="text-2xl font-bold">Assign Quiz to Students</h2>
-            <p className="text-purple-100 text-sm mt-1">{quiz.title}</p>
+            <p className="text-white text-sm mt-1">{quiz.title}</p>
             <div className="flex items-center gap-4 mt-2">
-              <p className="text-purple-200 text-xs">
+              <p className="text-white text-xs">
                 Code: {quiz.code} • {quiz.questions?.length || 0} questions
               </p>
             </div>
@@ -520,8 +521,8 @@ export default function AssignQuiz() {
 
       {!selectedClass && (
         <div>
-          <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-            <GraduationCap className="w-6 h-6 text-blue-600" />
+          <h3 className="text-xl text-title font-bold mb-4 flex items-center gap-2">
+            <GraduationCap className="w-6 h-6 text-accent" />
             Select a Class
           </h3>
 
@@ -539,25 +540,25 @@ export default function AssignQuiz() {
                 <button
                   key={classItem.id}
                   onClick={() => handleClassSelect(classItem)}
-                  className="p-6 border-2 border-gray-200 rounded-xl hover:border-purple-500 hover:bg-purple-50 transition text-left group"
+                  className="p-6 border-2 border-green-200 rounded-xl hover:border-blue-400 hover:bg-blue-50 transition text-left group"
                 >
                   <div className="flex items-start gap-4">
-                    <div className="p-3 bg-blue-100 rounded-lg group-hover:bg-purple-100 transition">
-                      <GraduationCap className="w-6 h-6 text-blue-600 group-hover:text-purple-600" />
+                    <div className="p-3 bg-green-100 rounded-lg group-hover:bg-blue-100 transition">
+                      <GraduationCap className="w-6 h-6 text-green-600 group-hover:text-blue-400" />
                     </div>
                     <div className="flex-1">
-                      <h4 className="font-bold text-lg text-gray-800">
+                      <h4 className="font-bold text-lg text-title">
                         {classItem.name}
                       </h4>
                       {classItem.subject && (
-                        <p className="text-sm text-gray-600 mt-1">
+                        <p className="text-sm text-subtext mt-1">
                           Subject: {classItem.subject}
                         </p>
                       )}
-                      <p className="text-sm text-blue-600 mt-2 font-semibold">
+                      <p className="text-sm text-green-600 group-hover:text-blue-400 mt-2 font-semibold">
                         {classItem.studentCount || 0} students enrolled
                       </p>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-subtext mt-1">
                         Teacher: {classItem.teacherName}
                       </p>
                     </div>
@@ -571,9 +572,9 @@ export default function AssignQuiz() {
 
       {selectedClass && (
         <div>
-          <div className="mb-6 p-4 bg-purple-50 rounded-lg border-2 border-purple-200">
-            <p className="text-sm text-gray-600">Selected Class:</p>
-            <p className="font-bold text-purple-800 text-lg">
+          <div className="mb-6 p-4 bg-green-50 rounded-lg border-2 border-green-200">
+            <p className="text-sm text-title">Selected Class:</p>
+            <p className="font-bold text-green-800 text-lg">
               {selectedClass.name}
             </p>
             {selectedClass.subject && (

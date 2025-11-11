@@ -8,6 +8,7 @@ import { useEffect, useState, useRef } from "react";
 import { auth, db } from "./firebase/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
 import { collection, getDocs, query, where } from "firebase/firestore";
+import { Loader2 } from "lucide-react";
 
 // GENERAL PAGES
 import LandingPage from "./pages/general/LandingPage";
@@ -85,7 +86,7 @@ function StudentLayout({ user, userDoc, children }) {
   return (
     <div className="flex h-screen bg-background">
       <StudentSidebar user={user} userDoc={userDoc} />
-      
+
       <div
         className="flex-1 overflow-y-auto transition-all duration-300"
         style={{ marginLeft: window.innerWidth >= 1024 ? sidebarWidth : "0" }}
@@ -151,19 +152,21 @@ function App() {
 
           if (!snapshot.empty) {
             const doc = snapshot.docs[0];
-            
+
             // ✅ CRITICAL FIX: Include document ID!
             const userDocWithId = {
-              id: doc.id,  // <-- IMPORTANT: Document ID from Firestore
-              ...doc.data()
+              id: doc.id, // <-- IMPORTANT: Document ID from Firestore
+              ...doc.data(),
             };
-            
+
             console.log(`✅ User document found!`);
             console.log(`   Document ID: ${doc.id}`);
             console.log(`   Auth UID: ${user.uid}`);
             console.log(`   Role: ${userDocWithId.role}`);
-            console.log(`   Name: ${userDocWithId.name || userDocWithId.displayName}`);
-            
+            console.log(
+              `   Name: ${userDocWithId.name || userDocWithId.displayName}`
+            );
+
             setUserDoc(userDocWithId);
             setRole(userDocWithId.role || null);
           } else {
@@ -210,7 +213,6 @@ function App() {
           justifyContent: "center",
           alignItems: "center",
           height: "100vh",
-          background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
           fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
           margin: 0,
           padding: 0,
@@ -219,10 +221,10 @@ function App() {
         {/* Animated spinner */}
         <div
           style={{
-            width: "60px",
-            height: "60px",
-            border: "4px solid rgba(255, 255, 255, 0.3)",
-            borderTop: "4px solid white",
+            width: "50px",
+            height: "50px",
+            border: "2px solid rgba(255, 255, 255, 0.3)",
+            borderTop: "4px solid black",
             borderRadius: "50%",
             animation: "spin 1s linear infinite",
             marginBottom: "30px",
@@ -232,26 +234,28 @@ function App() {
         {/* Loading text */}
         <h1
           style={{
-            color: "white",
-            fontSize: "28px",
+            color: "black",
+            fontSize: "20px",
+            fontFamily: "Outfit",
             fontWeight: "600",
-            margin: "0 0 10px 0",
+            margin: "0 0 6px 0",
             letterSpacing: "0.5px",
           }}
         >
-          Pakiss pwede ba?
+          Loading ...
         </h1>
 
         {/* Subtitle */}
         <p
           style={{
-            color: "rgba(255, 255, 255, 0.8)",
+            color: "black",
             fontSize: "14px",
+            fontFamily: "Outfit",
             margin: "0",
             letterSpacing: "1px",
           }}
         >
-          Sandali lang 🎯
+          Please check your internet connection.
         </p>
 
         {/* CSS Animation */}
@@ -298,7 +302,7 @@ function App() {
         {/* ============================
             ✅ STUDENT ROUTES WITH SIDEBAR
         ============================ */}
-        
+
         {/* Main Student Dashboard */}
         <Route
           path="/student"

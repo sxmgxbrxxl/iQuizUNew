@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import LOGO from "../assets/iQuizU.svg";
 import {
@@ -20,6 +20,7 @@ export default function Sidebar({ user, userDoc }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     document.documentElement.style.setProperty(
@@ -44,6 +45,14 @@ export default function Sidebar({ user, userDoc }) {
     { to: "quizzes", icon: FileText, label: "Quizzes" },
     { to: "reports", icon: BarChart3, label: "Reports" },
   ];
+
+  // Function to check if link is active
+    const isActive = (path) => {
+        if (path === "/teacher") {
+            return location.pathname === "/teacher";
+        }
+        return location.pathname.includes(path);
+    };
 
   // Get user display name
   const userName = userDoc?.firstName || user?.displayName || "Teacher";
@@ -119,41 +128,47 @@ export default function Sidebar({ user, userDoc }) {
           }`}
         >
           {/* --- Menu Items --- */}
-          <div className="flex flex-col space-y-3">
-            {menuItems.map((item) => (
-              <Link
-                key={item.to}
-                to={item.to}
-                onClick={() => setIsOpen(false)}
-                title={isCollapsed ? item.label : ""}
-                className={`flex items-center relative overflow-hidden rounded-xl text-white transition-all duration-300 group
-                  ${
-                    isCollapsed
-                      ? "justify-center py-3 hover:bg-white/10"
-                      : "gap-4 px-3 py-3 hover:bg-white/10"
-                  }`}
-              >
-                {/* Hover gradient effect */}
-                <div className="absolute inset-0 bg-gradient-to-r from-white/0 to-white/10 translate-x-[-100%] group-hover:translate-x-0 transition-transform duration-300"></div>
-
-                {/* Icon */}
-                <div className="relative flex items-center justify-center w-10 h-10 group-hover:scale-110 transition-transform duration-300">
-                  <item.icon size={22} className="text-white" />
-                </div>
-
-                {/* Label */}
-                <span
-                  className={`relative font-Outfit font-medium text-base transition-all duration-300 whitespace-nowrap ${
-                    isCollapsed
-                      ? "opacity-0 max-w-0 overflow-hidden"
-                      : "opacity-100 max-w-xs"
-                  }`}
+            <div className="flex flex-col space-y-3">
+                {menuItems.map((item) => (
+                <Link
+                    key={item.to}
+                    to={item.to}
+                    onClick={() => {
+                        setIsOpen(false);
+                        if (isActive(item.to)) {
+                            window.dispatchEvent(new Event('refreshPage'));
+                        }
+                    }}
+                    title={isCollapsed ? item.label : ""}
+                    className={`flex items-center relative overflow-hidden rounded-xl text-white transition-all duration-300 group
+                    ${
+                        isCollapsed
+                        ? "justify-center py-3 hover:bg-white/10"
+                        : "gap-4 px-3 py-3 hover:bg-white/10"
+                    }
+                    ${isActive(item.to) ? "bg-white/20 shadow-lg" : ""}`}
                 >
-                  {item.label}
-                </span>
-              </Link>
-            ))}
-          </div>
+                    {/* Hover gradient effect */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-white/0 to-white/10 translate-x-[-100%] group-hover:translate-x-0 transition-transform duration-300"></div>
+
+                    {/* Icon */}
+                    <div className={`relative flex items-center justify-center w-10 h-10 group-hover:scale-110 transition-transform duration-300 ${isActive(item.to) ? "scale-110" : ""}`}>
+                        <item.icon size={22} className="text-white" />
+                    </div>
+
+                    {/* Label */}
+                    <span
+                    className={`relative font-Outfit font-medium text-base transition-all duration-300 whitespace-nowrap ${
+                        isCollapsed
+                        ? "opacity-0 max-w-0 overflow-hidden"
+                        : "opacity-100 max-w-xs"
+                    }`}
+                    >
+                    {item.label}
+                    </span>
+                </Link>
+                ))}
+            </div>
 
           {/* --- Divider --- */}
           <div className="pt-4 pb-2">

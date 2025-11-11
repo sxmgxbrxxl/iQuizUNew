@@ -188,7 +188,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="bg-background relative h-screen w-full flex items-center justify-center font-Outfit">
+    <div className="bg-gradient-to-b from-background via-background to-green-200 relative h-screen w-full flex items-center justify-center font-Outfit px-10">
       {/* Back button */}
       <Link
         to="/"

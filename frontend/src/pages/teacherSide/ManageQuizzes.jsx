@@ -14,6 +14,7 @@ import {
   Zap,
   Eye,
   Copy,
+  Snowflake,
 } from "lucide-react";
 import {
   collection,
@@ -112,6 +113,29 @@ export default function ManageQuizzes() {
       alert("Error loading quizzes.");
     } finally {
       setLoadingQuizzes(false);
+    }
+  };
+
+  // -----------------------------------------------------------------
+  // DELETE QUIZ
+  // -----------------------------------------------------------------
+  const [deletingQuiz, setDeletingQuiz] = useState(null);
+
+  const handleDeleteQuiz = async (quizId, quizTitle) => {
+    const confirmMsg = `Are you sure you want to delete "${quizTitle}"?\n\nThis will permanently delete the quiz and cannot be undone.\n\nNote: If this quiz is assigned to any classes, you should delete those assignments first.`;
+    
+    if (!window.confirm(confirmMsg)) return;
+
+    setDeletingQuiz(quizId);
+    
+    try {
+      await deleteDoc(doc(db, "quizzes", quizId));
+      await fetchQuizzes();
+    } catch (e) {
+      console.error("Error deleting quiz:", e);
+      alert("Error deleting quiz. Please try again.");
+    } finally {
+      setDeletingQuiz(null);
     }
   };
 
@@ -748,8 +772,17 @@ export default function ManageQuizzes() {
                     </p>
                   </div>
                   <button 
-                    className="absolute top-2 right-1 w-4 h-4 text-red-600 transition-all active:scale-95 hover:scale-105 duration-200">
-                    <Trash2 className="w-4 h-4" />
+                    onClick={() => handleDeleteQuiz(q.id, q.title)}
+                    disabled={deletingQuiz === q.id}
+                    className={`absolute top-2 right-1 text-red-600 transition-all active:scale-95 hover:scale-105 duration-200 hover:bg-red-50 p-1 rounded ${
+                      deletingQuiz === q.id ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                    title="Delete quiz">
+                    {deletingQuiz === q.id ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-4 h-4" />
+                    )}
                   </button>
                 </div>
 
@@ -778,7 +811,7 @@ export default function ManageQuizzes() {
         <h3 className="text-xl text-title font-semibold mb-4 flex items-center gap-2">
           <Zap className="w-6 h-6 text-yellow-600" /> Live Quizzes
           {synchronousQuizzes.length > 0 && (
-            <span className="bg-yellow-400 text-yellow-900 px-2 py-0.5 rounded-full text-sm font-bold ml-2">
+            <span className="bg-yellow-400 text-yellow-900 px-3 py-1 rounded-full text-sm font-bold ">
               {synchronousQuizzes.length}
             </span>
           )}
@@ -864,7 +897,8 @@ export default function ManageQuizzes() {
                     </div>
                   )}
 
-                  <p className="text-gray-500 text-xs">
+                  <div className="flex flex-row items-center justify-between pt-2">
+                    <p className="text-gray-500 text-xs">
                     Assigned:{" "}
                     {a.assignedAt
                       ? new Date(
@@ -875,9 +909,8 @@ export default function ManageQuizzes() {
                           year: "numeric",
                         })
                       : "N/A"}
-                  </p>
+                    </p>
 
-                  <div className="pt-2">
                     <span
                       className={`px-3 py-1 rounded-full text-xs font-bold ${
                         a.sessionStatus === "active"
@@ -920,7 +953,7 @@ export default function ManageQuizzes() {
                   <button
                     onClick={() => handleDeleteAssignment(a, true)}
                     disabled={deletingAssignment === `${a.quizId}-${a.classId}`}
-                    className="w-full bg-red-600 text-white px-3 py-2 rounded-lg hover:bg-red-700 transition flex items-center justify-center gap-2 text-sm font-semibold disabled:bg-gray-400"
+                    className="w-full bg-red-600 text-white px-3 py-2 mt-2 rounded-lg hover:bg-red-700 transition flex items-center justify-center gap-2 text-sm font-semibold disabled:bg-gray-400"
                   >
                     {deletingAssignment === `${a.quizId}-${a.classId}` ? (
                       <>
@@ -946,7 +979,7 @@ export default function ManageQuizzes() {
         <h3 className="text-xl text-title font-semibold mb-4 flex items-center gap-2">
           <Users className="w-6 h-6 text-purple-600" /> Assigned Quizzes
           {assignedQuizzes.length > 0 && (
-            <span className="bg-purple-400 text-purple-900 px-2 py-0.5 rounded-full text-sm font-bold ml-2">
+            <span className="bg-purple-400 text-purple-900 px-3 py-1 rounded-full text-sm font-bold">
               {assignedQuizzes.length}
             </span>
           )}
@@ -1031,7 +1064,7 @@ export default function ManageQuizzes() {
                   <button
                     onClick={() => handleDeleteAssignment(a, false)}
                     disabled={deletingAssignment === `${a.quizId}-${a.classId}`}
-                    className="w-full bg-red-600 text-white px-3 py-2 rounded-lg hover:bg-red-700 transition flex items-center justify-center gap-2 text-sm font-semibold disabled:bg-gray-400"
+                    className="w-full bg-red-600 text-white px-3 py-2 mt-2 rounded-lg hover:bg-red-700 transition flex items-center justify-center gap-2 text-sm font-semibold disabled:bg-gray-400"
                   >
                     {deletingAssignment === `${a.quizId}-${a.classId}` ? (
                       <>
@@ -1370,10 +1403,10 @@ export default function ManageQuizzes() {
               <button
                 onClick={handleCreateManualQuiz}
                 disabled={!manualQuizTitle.trim() || manualQuestions.length === 0}
-                className="flex-1 px-6 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition flex items-center justify-center gap-2 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                className="flex-1 px-6 py-3 bg-button text-white font-semibold rounded-lg hover:bg-buttonHover transition flex items-center justify-center gap-2 disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
-                <CheckCircle className="w-5 h-5" />
-                Preview & Publish Quiz
+                <Eye className="w-5 h-5" />
+                See Preview
               </button>
             </div>
           </div>
@@ -1383,20 +1416,24 @@ export default function ManageQuizzes() {
       {/* PDF Modal */}
       {showPdfModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-title">
-                Generate Quiz from PDF
-              </h3>
+          <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+            <div className="flex justify-between items-center p-6 border-b bg-gradient-to-r from-green-600 to-teal-700 text-white rounded-t-2xl">
+              <div className="flex items-center gap-3">
+                <FileUp className="w-8 h-8" />
+                <div>
+                  <h3 className="text-2xl font-bold">Generate Quiz from PDF</h3>
+                  <p className="text-sm text-green-100">Create your quiz using artificial intelligence</p>
+                </div>
+              </div>
               <button
                 onClick={closePdfModal}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-white hover:bg-green-800 rounded-lg p-2 transition"
               >
                 <X className="w-6 h-6" />
               </button>
             </div>
 
-            <div className="space-y-4">
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
               <div>
                 <label className="block text-title text-sm font-semibold mb-2">
                   Quiz Title
@@ -1600,12 +1637,13 @@ export default function ManageQuizzes() {
                 </button>
                 <button
                   onClick={() => setClassificationFilter("LOTS")}
-                  className={`px-4 py-2 rounded-lg font-semibold text-sm transition ${
+                  className={`px-4 py-2 rounded-lg font-semibold text-sm transition flex items-center gap-2 ${
                     classificationFilter === "LOTS"
                       ? "bg-blue-600 text-white shadow-md"
                       : "bg-white text-blue-700 border-2 border-blue-300 hover:bg-blue-50"
                   }`}
                 >
+                  <Snowflake className="w-4 h-4" />
                   LOTS ({generatedQuiz.questions.filter(q => q.bloom_classification === "LOTS").length})
                 </button>
               </div>
@@ -1940,12 +1978,12 @@ export default function ManageQuizzes() {
               >
                 Cancel
               </button>
-              <button
+              {/* <button
                 onClick={() => alert("Save as Draft coming soon!")}
                 className="flex-1 px-6 py-3 bg-gray-600 text-white font-semibold rounded-lg hover:bg-gray-700 transition"
               >
                 Save as Draft
-              </button>
+              </button> */}
               <button
                 onClick={handleSaveQuiz}
                 disabled={publishing}

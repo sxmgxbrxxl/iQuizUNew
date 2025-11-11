@@ -248,14 +248,14 @@ Generate 6-10 recommendations now:`;
   const remark = getGradeRemark(quizResults.base50ScorePercentage);
   
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-3 sm:p-4 md:p-6 lg:p-8">
+    <div className="min-h-screen px-2 py-6 md:p-16 font-Outfit">
       <div className="max-w-6xl mx-auto">
         {/* Header Card with Animation */}
-        <div className="bg-white rounded-2xl sm:rounded-3xl shadow-xl overflow-hidden mb-4 sm:mb-6 animate-fadeInDown">
+        <div className="bg-components rounded-3xl shadow-xl overflow-hidden mb-4 sm:mb-6 animate-fadeInDown">
           <div className={`bg-gradient-to-r ${scoreLevel.color} p-6 sm:p-8 md:p-10 text-white relative overflow-hidden`}>
             {/* Animated background circles */}
-            <div className="absolute top-0 right-0 w-32 h-32 sm:w-48 sm:h-48 bg-white opacity-10 rounded-full -mr-16 -mt-16 animate-pulse"></div>
-            <div className="absolute bottom-0 left-0 w-24 h-24 sm:w-40 sm:h-40 bg-white opacity-10 rounded-full -ml-12 -mb-12 animate-pulse delay-300"></div>
+            <div className="absolute top-0 right-0 w-32 h-32 sm:w-48 sm:h-48 bg-components opacity-10 rounded-full -mr-16 -mt-16 animate-pulse"></div>
+            <div className="absolute bottom-0 left-0 w-24 h-24 sm:w-40 sm:h-40 bg-components opacity-10 rounded-full -ml-12 -mb-12 animate-pulse delay-300"></div>
             
             <div className="text-center relative z-10">
               <div className="text-5xl sm:text-6xl md:text-7xl mb-3 sm:mb-4 animate-bounceIn">{scoreLevel.icon}</div>

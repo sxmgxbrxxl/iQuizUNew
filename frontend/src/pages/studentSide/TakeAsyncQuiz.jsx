@@ -14,7 +14,7 @@ import {
   Clock,
   Send,
   AlertCircle,
-  Loader,
+  Loader2,
   CheckCircle,
   XCircle,
   ChevronDown,
@@ -24,6 +24,7 @@ import {
   Brain,
   Sparkles,
   Target,
+  BookOpen,
 } from "lucide-react";
 import QuizResults from "../../components/QuizResults";
 
@@ -467,9 +468,9 @@ export default function TakeAsyncQuiz({ user, userDoc }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-        <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-md">
-          <Loader className="w-10 h-10 sm:w-12 sm:h-12 animate-spin text-indigo-600 mx-auto mb-4" />
+      <div className="min-h-screen bg-background flex items-center justify-center font-Outfit p-4">
+        <div className="bg-components p-6 rounded-3xl shadow-md">
+          <Loader2 className="w-10 h-10 animate-spin text-blue-500 mx-auto mb-4" />
           <p className="text-gray-600 text-sm sm:text-base">Loading quiz...</p>
         </div>
       </div>
@@ -478,7 +479,7 @@ export default function TakeAsyncQuiz({ user, userDoc }) {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center p-4">
         <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-md max-w-md w-full text-center">
           <XCircle className="w-12 h-12 sm:w-16 sm:h-16 text-red-500 mx-auto mb-4" />
           <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-2">
@@ -487,7 +488,7 @@ export default function TakeAsyncQuiz({ user, userDoc }) {
           <p className="text-sm sm:text-base text-gray-600 mb-6">{error}</p>
           <button
             onClick={() => navigate("/student")}
-            className="bg-indigo-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition text-sm sm:text-base"
+            className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition text-sm sm:text-base"
           >
             Back to Dashboard
           </button>
@@ -516,15 +517,15 @@ export default function TakeAsyncQuiz({ user, userDoc }) {
   const currentQuestion = questions[currentQuestionIndex];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 font-Outfit">
-      <div className="bg-white shadow-md sticky top-0 z-10">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 font-Outfit">
+      <div className="bg-components shadow-md sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-between gap-2">
             <button
               onClick={() => {
                 navigate("/student");
               }}
-              className="flex items-center gap-1 sm:gap-2 text-gray-600 hover:text-gray-800 transition text-sm sm:text-base"
+              className="flex items-center gap-1 sm:gap-2 text-subtext hover:text-subsubtext transition text-sm sm:text-base"
             >
               <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
               <span className="hidden sm:inline">Back to Dashboard</span>
@@ -548,13 +549,13 @@ export default function TakeAsyncQuiz({ user, userDoc }) {
       </div>
 
       <main className="max-w-5xl mx-auto p-4 sm:p-6">
-        <div className="bg-white rounded-2xl shadow-md p-4 sm:p-6 mb-4 sm:mb-6">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2">
+        <div className="bg-components rounded-2xl shadow-md p-4 sm:p-6 mb-4 sm:mb-6">
+          <h1 className="text-2xl sm:text-3xl font-bold text-title mb-2">
             {quiz.title}
           </h1>
           <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-600">
-            <span className="font-semibold text-indigo-700">
-              📚 {assignment.className}
+            <span className="font-semibold text-blue-700 flex flex-row gap-2 items-center justify-center">
+              <BookOpen className="w-4 h-4"/> {assignment.className}
             </span>
             {assignment.subject && <span>• {assignment.subject}</span>}
             <span>• {questions.length} Questions</span>
@@ -570,7 +571,7 @@ export default function TakeAsyncQuiz({ user, userDoc }) {
           )}
         </div>
 
-        <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="mb-4 sm:mb-6 flex flex-row items-center justify-between">
           <div className={`inline-flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 rounded-full border-2 font-bold text-sm sm:text-lg ${getQuestionTypeColor(currentQuestion.type)}`}>
             <span className="hidden sm:inline">Question Type: {getQuestionTypeLabel(currentQuestion.type)}</span>
             <span className="sm:hidden">{getQuestionTypeLabel(currentQuestion.type)}</span>
@@ -583,13 +584,13 @@ export default function TakeAsyncQuiz({ user, userDoc }) {
         <div className="mb-4 sm:mb-6">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs sm:text-sm font-semibold text-gray-700">Progress</span>
-            <span className="text-xs sm:text-sm font-semibold text-indigo-600">
+            <span className="text-xs sm:text-sm font-semibold text-blue-600">
               {Object.keys(answers).length} / {questions.length} answered
             </span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2 sm:h-3">
             <div
-              className="bg-indigo-600 h-2 sm:h-3 rounded-full transition-all duration-300"
+              className="bg-blue-600 h-2 sm:h-3 rounded-full transition-all duration-300"
               style={{
                 width: `${(Object.keys(answers).length / questions.length) * 100}%`,
               }}
@@ -597,9 +598,9 @@ export default function TakeAsyncQuiz({ user, userDoc }) {
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-md p-4 sm:p-8 border-2 border-indigo-200 mb-4 sm:mb-6">
+        <div className="bg-white rounded-2xl shadow-md p-4 sm:p-8 border-2 border-blue-200 mb-4 sm:mb-6">
           <div className="flex items-start gap-3 sm:gap-4 mb-4 sm:mb-6">
-            <span className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 bg-indigo-600 text-white rounded-full flex items-center justify-center font-bold text-base sm:text-lg">
+            <span className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-base sm:text-lg">
               {currentQuestionIndex + 1}
             </span>
             <div className="flex-1">
@@ -623,8 +624,8 @@ export default function TakeAsyncQuiz({ user, userDoc }) {
                     key={choiceIndex}
                     className={`flex items-center gap-3 sm:gap-4 p-3 sm:p-5 rounded-xl border-2 cursor-pointer transition ${
                       answers[currentQuestionIndex] === choice.text
-                        ? "border-indigo-500 bg-indigo-50 shadow-md"
-                        : "border-gray-200 hover:border-indigo-300 bg-white hover:shadow-sm"
+                        ? "border-blue-500 bg-blue-50 shadow-md"
+                        : "border-gray-200 hover:border-blue-300 bg-white hover:shadow-sm"
                     }`}
                   >
                     <input
@@ -635,7 +636,7 @@ export default function TakeAsyncQuiz({ user, userDoc }) {
                       onChange={(e) =>
                         handleAnswerChange(currentQuestionIndex, e.target.value)
                       }
-                      className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600"
+                      className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600"
                     />
                     <span className="flex-1 text-gray-800 text-sm sm:text-lg" style={{ userSelect: 'none', WebkitUserSelect: 'none', MozUserSelect: 'none', msUserSelect: 'none' }}>
                       {String.fromCharCode(65 + choiceIndex)}. {choice.text}
@@ -652,8 +653,8 @@ export default function TakeAsyncQuiz({ user, userDoc }) {
                     key={option}
                     className={`flex items-center gap-3 sm:gap-4 p-3 sm:p-5 rounded-xl border-2 cursor-pointer transition ${
                       answers[currentQuestionIndex] === option
-                        ? "border-indigo-500 bg-indigo-50 shadow-md"
-                        : "border-gray-200 hover:border-indigo-300 bg-white hover:shadow-sm"
+                        ? "border-blue-500 bg-blue-50 shadow-md"
+                        : "border-gray-200 hover:border-blue-300 bg-white hover:shadow-sm"
                     }`}
                   >
                     <input
@@ -664,7 +665,7 @@ export default function TakeAsyncQuiz({ user, userDoc }) {
                       onChange={(e) =>
                         handleAnswerChange(currentQuestionIndex, e.target.value)
                       }
-                      className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600"
+                      className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600"
                     />
                     <span className="flex-1 text-gray-800 font-semibold text-sm sm:text-lg" style={{ userSelect: 'none', WebkitUserSelect: 'none', MozUserSelect: 'none', msUserSelect: 'none' }}>
                       {option}
@@ -679,7 +680,7 @@ export default function TakeAsyncQuiz({ user, userDoc }) {
                 <select
                   value={answers[currentQuestionIndex] || ""}
                   onChange={(e) => handleAnswerChange(currentQuestionIndex, e.target.value)}
-                  className="w-full px-4 sm:px-5 py-3 sm:py-4 pr-10 sm:pr-12 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent appearance-none bg-white text-gray-800 cursor-pointer hover:border-indigo-300 transition text-sm sm:text-lg"
+                  className="w-full px-4 sm:px-5 py-3 sm:py-4 pr-10 sm:pr-12 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white text-gray-800 cursor-pointer hover:border-blue-300 transition text-sm sm:text-lg"
                 >
                   <option value="" disabled>
                     Select your answer...
@@ -705,7 +706,7 @@ export default function TakeAsyncQuiz({ user, userDoc }) {
             >
               {submitting ? (
                 <>
-                  <Loader className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
+                  <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
                   Submitting...
                 </>
               ) : (
@@ -721,7 +722,7 @@ export default function TakeAsyncQuiz({ user, userDoc }) {
               disabled={!isCurrentQuestionAnswered()}
               className={`flex items-center gap-2 px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg font-semibold text-sm sm:text-base transition ${
                 isCurrentQuestionAnswered()
-                  ? "bg-indigo-600 text-white hover:bg-indigo-700"
+                  ? "bg-blue-600 text-white hover:bg-blue-700"
                   : "bg-gray-300 text-gray-500 cursor-not-allowed"
               }`}
             >
