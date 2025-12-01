@@ -61,7 +61,7 @@ export default function PasswordConfirmModal({
                 <span className="text-gray-600">🔑 Default Password:</span>
                 <div className="flex flex-col items-end justify-end">
                   <span className="font-mono font-semibold text-gray-800">SURNAME1234</span>
-                  <span className="text-xs text-subtext text-end">(depends on student's surname and student number)</span>
+                  <span className="text-xs text-subtext text-end">(depends on student's surname and last 4 digits of student number)</span>
               </div>
                 </div>
               <div className="flex justify-between">
