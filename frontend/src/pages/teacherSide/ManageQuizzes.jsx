@@ -580,41 +580,45 @@ const handleDeleteQuiz = async (quizId, quizTitle) => {
   };
 
   const handleAddQuestion = (type) => {
-    const newQ = {
-      type,
-      question: "",
-      points: 1,
-      correct_answer: type === "true_false" ? "True" : "",
-      choices:
-        type === "multiple_choice"
-          ? [
-              { text: "", is_correct: false },
-              { text: "", is_correct: false },
-            ]
-          : null,
-      bloom_classification: "LOTS",
-      classification_confidence: 0,
-    };
-    setGeneratedQuiz({
-      ...generatedQuiz,
-      questions: [...generatedQuiz.questions, newQ],
-    });
-    setEditingQuestion(generatedQuiz.questions.length);
-    setEditForm({
-      question: "",
-      type,
-      points: 1,
-      correct_answer: type === "true_false" ? "True" : "",
-      choices:
-        type === "multiple_choice"
-          ? [
-              { text: "", is_correct: false },
-              { text: "", is_correct: false },
-            ]
-          : null,
-      bloom_classification: "LOTS",
-    });
+  const newQ = {
+    type,
+    question: "",
+    points: 1,
+    correct_answer: type === "true_false" ? "True" : "",
+    choices:
+      type === "multiple_choice"
+        ? [
+            { text: "", is_correct: false },
+            { text: "", is_correct: false },
+            { text: "", is_correct: false },
+            { text: "", is_correct: false },
+          ]
+        : null,
+    bloom_classification: "LOTS",
+    classification_confidence: 0,
   };
+  setGeneratedQuiz({
+    ...generatedQuiz,
+    questions: [...generatedQuiz.questions, newQ],
+  });
+  setEditingQuestion(generatedQuiz.questions.length);
+  setEditForm({
+    question: "",
+    type,
+    points: 1,
+    correct_answer: type === "true_false" ? "True" : "",
+    choices:
+      type === "multiple_choice"
+        ? [
+            { text: "", is_correct: false },
+            { text: "", is_correct: false },
+            { text: "", is_correct: false },
+            { text: "", is_correct: false },
+          ]
+        : null,
+    bloom_classification: "LOTS",
+  });
+};
 
   const handleDeleteQuestion = (idx) => {
     if (window.confirm("Delete this question?")) {
@@ -1294,9 +1298,6 @@ const handleDeleteQuiz = async (quizId, quizTitle) => {
                                   }
                                   className="w-5 h-5 text-blue-600"
                                 />
-                                <span className="font-semibold text-gray-700 w-6">
-                                  {String.fromCharCode(65 + cIndex)}.
-                                </span>
                                 <input
                                   type="text"
                                   value={choice.text}
@@ -1308,7 +1309,7 @@ const handleDeleteQuiz = async (quizId, quizTitle) => {
                                       e.target.value
                                     )
                                   }
-                                  placeholder={`Choice ${String.fromCharCode(65 + cIndex)}`}
+                                  placeholder={`Enter choice ${cIndex + 1}`}
                                   className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 />
                               </div>
@@ -1933,38 +1934,34 @@ const handleDeleteQuiz = async (quizId, quizTitle) => {
                                       </div>
 
                                       {q.choices && (
-                                        <div className="ml-11 space-y-2">
-                                          {q.choices.map((c, i) => (
-                                            <div
-                                              key={i}
-                                              className={`p-3 rounded-lg border-2 ${
-                                                c.is_correct
-                                                  ? "bg-green-50 border-green-400"
-                                                  : "bg-white border-gray-200"
-                                              }`}
-                                            >
-                                              <div className="flex items-center gap-2">
-                                                <span className="font-semibold text-gray-700">
-                                                  {String.fromCharCode(65 + i)}
-                                                  .
-                                                </span>
-                                                <span
-                                                  className={
-                                                    c.is_correct
-                                                      ? "text-green-700 font-semibold"
-                                                      : "text-gray-700"
-                                                  }
-                                                >
-                                                  {c.text}
-                                                </span>
-                                                {c.is_correct && (
-                                                  <CheckCircle className="w-5 h-5 text-green-600 ml-auto" />
-                                                )}
-                                              </div>
+                                      <div className="ml-11 space-y-2">
+                                        {q.choices.map((c, i) => (
+                                          <div
+                                            key={i}
+                                            className={`p-3 rounded-lg border-2 ${
+                                              c.is_correct
+                                                ? "bg-green-50 border-green-400"
+                                                : "bg-white border-gray-200"
+                                            }`}
+                                          >
+                                            <div className="flex items-center gap-2">
+                                              <span
+                                                className={
+                                                  c.is_correct
+                                                    ? "text-green-700 font-semibold"
+                                                    : "text-gray-700"
+                                                }
+                                              >
+                                                {c.text}
+                                              </span>
+                                              {c.is_correct && (
+                                                <CheckCircle className="w-5 h-5 text-green-600 ml-auto" />
+                                              )}
                                             </div>
-                                          ))}
-                                        </div>
-                                      )}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
 
                                       {!q.choices && (
                                         <div className="ml-11 mt-3">

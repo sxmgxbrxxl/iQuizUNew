@@ -1,12 +1,131 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPortal } from "react-dom";
-import { Upload, Loader2, CircleCheck, AlertCircle } from "lucide-react";
+import { Upload, Loader2, CircleCheck, AlertCircle, X } from "lucide-react";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import { auth, db } from "../../firebase/firebaseConfig";
 import { collection, addDoc, query, where, getDocs, doc, updateDoc } from "firebase/firestore";
-import ClassNameModal from './ClassNameModal';
+
+// Class Confirmation Modal Component
+function ClassConfirmationModal({ isOpen, classInfo, students, onConfirm, onCancel }) {
+  const [isConfirming, setIsConfirming] = useState(false);
+
+  if (!isOpen) return null;
+
+  const handleConfirm = async () => {
+    setIsConfirming(true);
+    await onConfirm();
+    setIsConfirming(false);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50">
+          <h3 className="text-xl font-bold text-gray-800">Confirm Class Information</h3>
+          <button
+            onClick={onCancel}
+            disabled={isConfirming}
+            className="p-2 hover:bg-gray-200 rounded-lg transition"
+          >
+            <X className="w-5 h-5 text-gray-600" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {/* Class Information */}
+          <div className="mb-6 bg-blue-50 border-2 border-blue-200 rounded-xl p-5">
+            <h4 className="font-bold text-lg text-blue-900 mb-4">📚 Class Details</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-blue-700 font-semibold mb-1">Class No.</p>
+                <p className="text-base text-gray-800 font-medium">{classInfo.classNo || "N/A"}</p>
+              </div>
+              <div>
+                <p className="text-sm text-blue-700 font-semibold mb-1">Code</p>
+                <p className="text-base text-gray-800 font-medium">{classInfo.code || "N/A"}</p>
+              </div>
+              <div className="md:col-span-2">
+                <p className="text-sm text-blue-700 font-semibold mb-1">Description</p>
+                <p className="text-base text-gray-800 font-medium">{classInfo.description || "N/A"}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Student List */}
+          <div className="mb-4">
+            <h4 className="font-bold text-lg text-gray-800 mb-3">
+              👥 Students ({students.length})
+            </h4>
+            <div className="border border-gray-200 rounded-xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-100 border-b border-gray-200">
+                    <tr>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700">No</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Student No.</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Name</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Gender</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Program</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Year</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Email</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {students.slice(0, 10).map((student, index) => (
+                      <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="px-4 py-3 text-gray-700">{student.No || index + 1}</td>
+                        <td className="px-4 py-3 text-gray-700">{student["Student No."]}</td>
+                        <td className="px-4 py-3 text-gray-700 font-medium">{student.Name}</td>
+                        <td className="px-4 py-3 text-gray-700">{student.Gender}</td>
+                        <td className="px-4 py-3 text-gray-700">{student.Program}</td>
+                        <td className="px-4 py-3 text-gray-700">{student.Year}</td>
+                        <td className="px-4 py-3 text-gray-700 text-xs">{student["Email Address"]}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {students.length > 10 && (
+                <div className="px-4 py-3 bg-gray-50 text-sm text-gray-600 text-center">
+                  ... and {students.length - 10} more students
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-gray-200 flex gap-3 justify-end bg-gray-50">
+          <button
+            onClick={onCancel}
+            disabled={isConfirming}
+            className="px-6 py-2.5 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={isConfirming}
+            className="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            {isConfirming ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              "Confirm & Save"
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function ManageClasses() {
   const [fileName, setFileName] = useState("");
@@ -14,7 +133,7 @@ export default function ManageClasses() {
   const [uploadCount, setUploadCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState("");
   const [uploadProgress, setUploadProgress] = useState("");
-  const [showClassNameModal, setShowClassNameModal] = useState(false);
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [pendingUploadData, setPendingUploadData] = useState(null);
   const [classCount, setClassCount] = useState(0);
   const [isLimitReached, setIsLimitReached] = useState(false);
@@ -30,12 +149,15 @@ export default function ManageClasses() {
   }, []);
 
   useEffect(() => {
-  setMounted(true);
-}, []);
+    setMounted(true);
+  }, []);
 
   const checkClassLimit = async () => {
     const user = auth.currentUser;
-    if (!user) return;
+    if (!user) {
+      console.log("❌ No user found when checking class limit");
+      return;
+    }
 
     try {
       const q = query(
@@ -45,10 +167,26 @@ export default function ManageClasses() {
       const querySnapshot = await getDocs(q);
       const count = querySnapshot.size;
       
+      // Log class IDs for debugging
+      const classIds = querySnapshot.docs.map(doc => doc.id);
+      console.log(`Teacher has ${count}/${MAX_CLASSES} classes`);
+      console.log("Class IDs:", classIds);
+      
+      // Log class details to identify incomplete classes
+      if (count > 0) {
+        querySnapshot.docs.forEach(doc => {
+          const data = doc.data();
+          console.log(`Class ${doc.id}:`, {
+            name: data.name,
+            code: data.code,
+            classNo: data.classNo,
+            studentCount: data.studentCount
+          });
+        });
+      }
+      
       setClassCount(count);
       setIsLimitReached(count >= MAX_CLASSES);
-      
-      console.log(`Teacher has ${count}/${MAX_CLASSES} classes`);
     } catch (error) {
       console.error("Error checking class limit:", error);
     }
@@ -67,14 +205,22 @@ export default function ManageClasses() {
       
       const querySnapshot = await getDocs(q);
       
-      if (!querySnapshot.empty) {
+      if (!querySnapshot.empty && querySnapshot.docs && querySnapshot.docs.length > 0) {
         const existingDoc = querySnapshot.docs[0];
+        const docData = existingDoc.data();
+        
+        // Verify document has required data
+        if (!docData) {
+          console.warn("Empty document data for:", emailAddress);
+          return null;
+        }
+        
         return {
           id: existingDoc.id,
-          name: existingDoc.data().name,
-          classIds: existingDoc.data().classIds || [],
-          hasAccount: existingDoc.data().hasAccount,
-          authUID: existingDoc.data().authUID
+          name: docData.name || "",
+          classIds: docData.classIds || [],
+          hasAccount: docData.hasAccount || false,
+          authUID: docData.authUID || null
         };
       }
       
@@ -116,61 +262,138 @@ export default function ManageClasses() {
     });
   };
 
-  const processStudentData = async (students, headers, file) => {
-    console.log("Parsed data:", students);
-    console.log("Total rows:", students.length);
-    console.log("First row:", students[0]);
-    console.log("Headers:", headers);
-    
-    const user = auth.currentUser;
-    if (!user) {
-      alert("❌ Please log in first!");
-      return;
+  const extractClassInfo = (allData) => {
+    let classNo = "";
+    let code = "";
+    let description = "";
+
+    // Search through the first 15 rows for class information
+    for (let i = 0; i < Math.min(15, allData.length); i++) {
+      const row = allData[i];
+      if (!row || row.length === 0) continue;
+
+      // Convert row to string for searching
+      const rowStr = Array.isArray(row) ? row.join('|').toLowerCase() : '';
+      
+      // Look for Class No
+      if (rowStr.includes('class no')) {
+        const classNoIndex = row.findIndex(cell => 
+          cell && cell.toString().toLowerCase().includes('class no')
+        );
+        if (classNoIndex !== -1 && row[classNoIndex + 1]) {
+          classNo = row[classNoIndex + 1].toString().trim();
+        }
+      }
+      
+      // Look for Code
+      if (rowStr.includes('code:') || (rowStr.includes('code') && !rowStr.includes('postal'))) {
+        const codeIndex = row.findIndex(cell => 
+          cell && cell.toString().toLowerCase() === 'code:'
+        );
+        if (codeIndex !== -1 && row[codeIndex + 1]) {
+          code = row[codeIndex + 1].toString().trim();
+        }
+      }
+      
+      // Look for Description
+      if (rowStr.includes('description')) {
+        const descIndex = row.findIndex(cell => 
+          cell && cell.toString().toLowerCase().includes('description')
+        );
+        if (descIndex !== -1 && row[descIndex + 1]) {
+          description = row[descIndex + 1].toString().trim();
+        }
+      }
     }
 
-    // Check class limit before processing
-    if (isLimitReached) {
-      alert(`❌ Class Limit Reached!\n\nYou have reached the maximum limit of ${MAX_CLASSES} classes.\n\nPlease delete an existing class before adding a new one.`);
-      return;
-    }
-
-    const normalizedStudents = normalizeHeaders(students);
-    console.log("Normalized first row:", normalizedStudents[0]);
-
-    const requiredHeaders = ["Student No.", "Name"];
-    const firstRow = normalizedStudents[0] || {};
-    const availableHeaders = Object.keys(firstRow);
-    
-    console.log("Available headers:", availableHeaders);
-    console.log("Required headers:", requiredHeaders);
-    
-    const missingHeaders = requiredHeaders.filter(h => !availableHeaders.includes(h));
-    
-    if (missingHeaders.length > 0) {
-      alert(`❌ Missing columns: ${missingHeaders.join(", ")}\n\nAvailable columns: ${availableHeaders.join(", ")}\n\nPlease check your file format.`);
-      return;
-    }
-
-    const validStudents = normalizedStudents.filter(s => 
-      s["Student No."] && s["Name"]
-    );
-
-    if (validStudents.length === 0) {
-      alert("❌ No valid student data found in file");
-      return;
-    }
-
-    console.log("Valid students:", validStudents.length);
-
-    setPendingUploadData({
-      validStudents,
-      file
-    });
-    setShowClassNameModal(true);
+    console.log("Extracted class info:", { classNo, code, description });
+    return { classNo, code, description };
   };
 
-  const confirmClassNameAndUpload = async (className) => {
-    setShowClassNameModal(false);
+    const checkClassNoExists = async (classNo) => {
+    if (!classNo || classNo.trim() === "") {
+      return false;
+    }
+
+    try {
+      const user = auth.currentUser;
+      if (!user) return false;
+
+      const q = query(
+        collection(db, "classes"),
+        where("teacherId", "==", user.uid),
+        where("classNo", "==", classNo.trim())
+      );
+      
+      const querySnapshot = await getDocs(q);
+      return !querySnapshot.empty;
+    } catch (error) {
+      console.error("Error checking Class No.:", error);
+      return false;
+    }
+  };
+
+  const processStudentData = async (students, headers, file, allData = []) => {
+  console.log("Parsed data:", students);
+  console.log("Total rows:", students.length);
+  
+  const user = auth.currentUser;
+  if (!user) {
+    alert("❌ Please log in first!");
+    return;
+  }
+
+  if (isLimitReached) {
+    alert(`❌ Class Limit Reached!\n\nYou have reached the maximum limit of ${MAX_CLASSES} classes.\n\nPlease delete an existing class before adding a new one.`);
+    return;
+  }
+
+  const normalizedStudents = normalizeHeaders(students);
+  
+  const requiredHeaders = ["Student No.", "Name"];
+  const firstRow = normalizedStudents[0] || {};
+  const availableHeaders = Object.keys(firstRow);
+  
+  const missingHeaders = requiredHeaders.filter(h => !availableHeaders.includes(h));
+  
+  if (missingHeaders.length > 0) {
+    alert(`❌ Missing columns: ${missingHeaders.join(", ")}\n\nAvailable columns: ${availableHeaders.join(", ")}\n\nPlease check your file format.`);
+    return;
+  }
+
+  const validStudents = normalizedStudents.filter(s => 
+    s["Student No."] && s["Name"]
+  );
+
+  if (validStudents.length === 0) {
+    alert("❌ No valid student data found in file");
+    return;
+  }
+
+  const classInfo = extractClassInfo(allData);
+
+  if (classInfo.classNo && classInfo.classNo.trim() !== "") {
+    setUploadProgress("Validating class information...");
+    const classNoExists = await checkClassNoExists(classInfo.classNo);
+    if (classNoExists) {
+      alert(`❌ Duplicate Class No. Detected!\n\nClass No. "${classInfo.classNo}" already exists in your classes.\n\nEach class must have a unique Class No.`);
+      setFileName("");
+      setUploadProgress("");
+      return;
+    }
+    setUploadProgress("");
+  }
+
+  setPendingUploadData({
+    validStudents,
+    file,
+    classInfo
+  });
+  setShowConfirmationModal(true);
+};
+
+  const confirmAndUpload = async () => {
+    setShowConfirmationModal(false);
     setUploading(true);
     setUploadProgress("Starting upload...");
 
@@ -189,13 +412,16 @@ export default function ManageClasses() {
         return;
       }
 
-      const { validStudents, file } = pendingUploadData;
+      const { validStudents, file, classInfo } = pendingUploadData;
       const teacherName = user.displayName || user.email?.split('@')[0] || "Teacher";
       
-      setUploadProgress(`Creating class: ${className}`);
+      setUploadProgress(`Creating class: ${classInfo.description || file.name}`);
       
+      // Save to Firestore with new structure including classNo and code
       const classDoc = await addDoc(collection(db, "classes"), {
-        name: className,
+        name: classInfo.description || file.name.replace(/\.(csv|xlsx|xls)$/i, ''),
+        classNo: classInfo.classNo || "",
+        code: classInfo.code || "",
         subject: "",
         studentCount: validStudents.length,
         teacherId: user.uid,
@@ -246,7 +472,7 @@ export default function ManageClasses() {
             });
             
             addedToExistingCount++;
-            console.log(`✅ Added ${name} to class ${className} (already exists)`);
+            console.log(`✅ Added ${name} to class ${classInfo.description} (already exists)`);
           } else {
             await addDoc(collection(db, "users"), {
               studentNo: cleanStudentNo,
@@ -317,8 +543,8 @@ export default function ManageClasses() {
     }
   };
 
-  const cancelClassNameModal = () => {
-    setShowClassNameModal(false);
+  const cancelConfirmation = () => {
+    setShowConfirmationModal(false);
     setPendingUploadData(null);
     setFileName("");
   };
@@ -346,7 +572,7 @@ export default function ManageClasses() {
         dynamicTyping: false,
         transformHeader: (header) => header.trim(),
         complete: async function (results) {
-          await processStudentData(results.data, results.meta.fields || [], file);
+          await processStudentData(results.data, results.meta.fields || [], file, []);
           e.target.value = "";
         },
         error: function(error) {
@@ -403,7 +629,7 @@ export default function ManageClasses() {
           
           const headers = Object.keys(jsonData[0] || {});
           
-          await processStudentData(jsonData, headers, file);
+          await processStudentData(jsonData, headers, file, allData);
           e.target.value = "";
         } catch (error) {
           console.error("XLSX parsing error:", error);
@@ -502,7 +728,7 @@ export default function ManageClasses() {
             )}
           </label>
 
-          {fileName && !uploading && !showClassNameModal && (
+          {fileName && !uploading && !showConfirmationModal && (
             <p className="text-sm text-subtext italic mt-3">Selected: {fileName}</p>
           )}
 
@@ -530,14 +756,15 @@ export default function ManageClasses() {
         )}
       </div>
 
-      {mounted && createPortal (
-      <ClassNameModal
-        isOpen={showClassNameModal}
-        defaultName={pendingUploadData?.file.name.replace(/\.(csv|xlsx|xls)$/i, '')}
-        onConfirm={confirmClassNameAndUpload}
-        onCancel={cancelClassNameModal}
-      />,
-      document.body
+      {mounted && createPortal(
+        <ClassConfirmationModal
+          isOpen={showConfirmationModal}
+          classInfo={pendingUploadData?.classInfo || {}}
+          students={pendingUploadData?.validStudents || []}
+          onConfirm={confirmAndUpload}
+          onCancel={cancelConfirmation}
+        />,
+        document.body
       )}
     </div>
   );

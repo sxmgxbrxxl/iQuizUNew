@@ -685,7 +685,7 @@ export default function AssignQuiz() {
                   </label>
                   <input
                     type="number"
-                    min="1"
+                    min="0"
                     value={assignmentSettings.timeLimit || ""}
                     onChange={(e) =>
                       setAssignmentSettings({
@@ -695,16 +695,13 @@ export default function AssignQuiz() {
                           : null,
                       })
                     }
-                    placeholder={isSynchronous ? "No limit" : "No limit (fixed for async)"}
-                    disabled={!isSynchronous}
-                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      !isSynchronous ? "bg-gray-100 cursor-not-allowed text-gray-500" : ""
-                    }`}
+                    placeholder="No Time Limit"
+                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                   <p className="text-xs text-gray-600 mt-1">
-                    {isSynchronous 
-                      ? "Leave empty for no time limit" 
-                      : "Time limit is disabled for self-paced quizzes"}
+                    {assignmentSettings.timeLimit === null || assignmentSettings.timeLimit === 0
+                      ? "No time limit"
+                      : `${assignmentSettings.timeLimit} minute${assignmentSettings.timeLimit > 1 ? 's' : ''} limit`}
                   </p>
                 </div>
 

@@ -32,9 +32,6 @@ export default function ViewClassPage() {
   const [availableQuizzes, setAvailableQuizzes] = useState([]);
   const [loadingAvailableQuizzes, setLoadingAvailableQuizzes] = useState(false);
   const [selectedQuizForAssignment, setSelectedQuizForAssignment] = useState(null);
-  const [editingClassName, setEditingClassName] = useState(false);
-  const [newClassName, setNewClassName] = useState(classData?.name || "");
-  const [savingClassName, setSavingClassName] = useState(false);
 
   useEffect(() => {
     fetchClassData();
@@ -42,12 +39,6 @@ export default function ViewClassPage() {
     fetchAssignedQuizzes();
     fetchSynchronousQuizzes();
   }, [classId]);
-
-  useEffect(() => {
-  if (classData?.name) {
-    setNewClassName(classData.name);
-  }
-}, [classData?.name]);
 
   useEffect(() => {
   setMounted(true);
@@ -246,39 +237,6 @@ export default function ViewClassPage() {
       setLoadingSynchronous(false);
     }
   };
-
-  const handleUpdateClassName = async () => {
-  if (!newClassName.trim()) {
-    alert("Class name cannot be empty!");
-    return;
-  }
-
-  if (newClassName === classData?.name) {
-    setEditingClassName(false);
-    return;
-  }
-
-  setSavingClassName(true);
-  try {
-    await updateDoc(doc(db, "classes", classId), {
-      name: newClassName.trim()
-    });
-
-    setClassData(prev => ({
-      ...prev,
-      name: newClassName.trim()
-    }));
-
-    setEditingClassName(false);
-    alert("Class name updated successfully!");
-  } catch (error) {
-    console.error("Error updating class name:", error);
-    alert("Failed to update class name");
-    setNewClassName(classData?.name);
-  } finally {
-    setSavingClassName(false);
-  }
-};
 
   const fetchAvailableQuizzes = async () => {
     setLoadingAvailableQuizzes(true);
@@ -754,6 +712,28 @@ export default function ViewClassPage() {
         </div>
       )}
 
+      {/* CLASS INFO SECTION */}
+      <div className="mb-6 bg-white border-2 border-gray-200 rounded-xl p-4">
+        <div className="mb-6 pb-6 border-b border-gray-200">
+          <h2 className="text-3xl font-bold text-gray-900">{classData?.name}</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+            <div>
+              <p className="text-sm text-gray-600 font-semibold uppercase tracking-wider">Class Number</p>
+             <p className="text-xl font-bold text-gray-800 mt-1">#{classData?.classNo || "N/A"}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600 font-semibold uppercase tracking-wider">Code</p>
+              <p className="text-xl font-bold text-gray-800 mt-1">{classData?.code || "N/A"}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600 font-semibold uppercase tracking-wider">Total Students</p>
+              <p className="text-xl font-bold text-gray-800 mt-1">{students.length}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* TAB BUTTONS */}
       <div className="mb-6 bg-white border-2 border-gray-200 rounded-xl p-2 flex gap-2 animate-slideIn">
         <button
           onClick={() => setActiveTab("students")}
@@ -800,55 +780,14 @@ export default function ViewClassPage() {
       {activeTab === "students" ? (
         <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden animate-slideIn">
           <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-green-50 to-blue-50">
-            <div className="text-xl font-bold text-title flex items-center justify-between gap-3">
-            <span>Students List</span>
-            <span className="text-base font-normal text-subtext">
-              ({students.length} total)
-            </span>
-            
-            {editingClassName ? (
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={newClassName}
-                  onChange={(e) => setNewClassName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleUpdateClassName();
-                    if (e.key === 'Escape') {
-                      setEditingClassName(false);
-                      setNewClassName(classData?.name);
-                    }
-                  }}
-                  autoFocus
-                  className="px-3 py-2 border-2 border-blue-400 rounded-lg font-semibold text-gray-800 focus:outline-none"
-                />
-                <button
-                  onClick={handleUpdateClassName}
-                  disabled={savingClassName}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition disabled:bg-gray-400"
-                >
-                  {savingClassName ? "Saving..." : "Save"}
-                </button>
-                <button
-                  onClick={() => {
-                    setEditingClassName(false);
-                    setNewClassName(classData?.name);
-                  }}
-                  className="px-4 py-2 bg-gray-400 text-white rounded-lg font-semibold hover:bg-gray-500 transition"
-                >
-                  Cancel
-                </button>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <span className="text-xl font-bold text-title">Students List</span>
+                <span className="text-base font-normal text-subtext ml-2">
+                  ({students.length} total)
+                </span>
               </div>
-            ) : (
-              <button
-                onClick={() => setEditingClassName(true)}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 transition flex items-center gap-2"
-              >
-                <Pen className="w-4 h-4" />
-                {classData?.name}
-              </button>
-            )}
-          </div>
+            </div>
           </div>
 
           {loadingStudents ? (

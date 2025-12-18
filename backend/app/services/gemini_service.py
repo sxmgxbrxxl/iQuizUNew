@@ -63,7 +63,7 @@ Return ONLY valid JSON in this exact format:
   "multiple_choice": [
     {{
       "question": "Question text here?",
-      "choices": ["Option A", "Option B", "Option C", "Option D"],
+      "choices": ["Option A text here", "Option B text here", "Option C text here", "Option D text here"],
       "correct_answer": 0,
       "points": 1
     }}
@@ -84,7 +84,10 @@ Return ONLY valid JSON in this exact format:
   ]
 }}
 
-IMPORTANT: Return ONLY the JSON object, no markdown, no explanations, no code blocks.
+IMPORTANT: 
+- Return ONLY the JSON object, no markdown, no explanations, no code blocks.
+- Choice text should NOT include letter prefixes (A., B., C., D.)
+- Just the plain option text
 """
 
             generation_config = {
@@ -108,6 +111,15 @@ IMPORTANT: Return ONLY the JSON object, no markdown, no explanations, no code bl
             response_text = response_text.strip()
 
             quiz_data = json.loads(response_text)
+
+            # CLEAN UP: Remove A., B., C., D. prefixes from choice text
+            for mc in quiz_data.get("multiple_choice", []):
+                cleaned_choices = []
+                for choice_text in mc["choices"]:
+                    # Remove patterns like "A. ", "B. ", "C. ", "D. " from the beginning
+                    cleaned = re.sub(r'^[A-D]\.\s*', '', choice_text).strip()
+                    cleaned_choices.append(cleaned)
+                mc["choices"] = cleaned_choices
 
             # Validate structure
             if not all(key in quiz_data for key in ["multiple_choice", "true_false", "identification"]):

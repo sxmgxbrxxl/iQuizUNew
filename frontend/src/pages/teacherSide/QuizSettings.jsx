@@ -336,8 +336,16 @@ export default function QuizSettings() {
             <Clock className="w-5 h-5 text-blue-600" />
             <h3 className="text-lg font-bold">Time Settings</h3>
           </div>
+          
+          <p className="text-sm text-gray-600 mb-4">
+            {settings.mode === "asynchronous" 
+              ? "Set a time limit for students to complete the quiz once they start"
+              : "Control how long students have during the live session"
+            }
+          </p>
+
           <label className="block text-sm font-semibold mb-2">
-            Time Limit (minutes) - Set to 0 for no limit
+            Time Limit (minutes)
           </label>
           <input
             type="number"
@@ -349,12 +357,13 @@ export default function QuizSettings() {
                 timeLimit: parseInt(e.target.value) || 0,
               })
             }
-            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Enter time in minutes or leave as 0 for no limit"
+            className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-gray-500 mt-2">
             {settings.timeLimit === 0
-              ? "No time limit"
-              : `Students have ${settings.timeLimit} minutes to complete.`}
+              ? "⏱️ No time limit - Students can take as long as they need"
+              : `⏱️ Students have ${settings.timeLimit} minute${settings.timeLimit > 1 ? 's' : ''} to complete the quiz`}
           </p>
         </div>
 

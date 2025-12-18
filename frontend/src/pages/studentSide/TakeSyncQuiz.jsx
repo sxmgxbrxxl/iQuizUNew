@@ -1025,33 +1025,33 @@ export default function TakeSyncQuiz({ user, userDoc }) {
 
           <div className="md:ml-16">
             {currentQuestion.type === "multiple_choice" && (
-              <div className="space-y-2 md:space-y-3">
-                {currentQuestion.choices?.map((choice, choiceIndex) => (
-                  <label
-                    key={choiceIndex}
-                    className={`flex items-center gap-3 md:gap-4 p-3 md:p-5 rounded-xl border-2 cursor-pointer transition ${
-                      answers[currentQuestionIndex] === choice.text
-                        ? "border-purple-500 bg-purple-50 shadow-md"
-                        : "border-gray-200 hover:border-purple-300 bg-white hover:shadow-sm"
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name={`question-${currentQuestionIndex}`}
-                      value={choice.text}
-                      checked={answers[currentQuestionIndex] === choice.text}
-                      onChange={(e) =>
-                        handleAnswerChange(currentQuestionIndex, e.target.value)
-                      }
-                      className="w-5 h-5 md:w-6 md:h-6 text-purple-600 flex-shrink-0"
-                    />
-                    <span className="flex-1 text-gray-800 text-sm md:text-lg" style={{ userSelect: 'none', WebkitUserSelect: 'none', MozUserSelect: 'none', msUserSelect: 'none' }}>
-                      {String.fromCharCode(65 + choiceIndex)}. {choice.text}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            )}
+            <div className="space-y-2 md:space-y-3">
+              {currentQuestion.choices?.map((choice, choiceIndex) => (
+                <label
+                  key={choiceIndex}
+                  className={`flex items-center gap-3 md:gap-4 p-3 md:p-5 rounded-xl border-2 cursor-pointer transition ${
+                    answers[currentQuestionIndex] === choice.text
+                      ? "border-purple-500 bg-purple-50 shadow-md"
+                      : "border-gray-200 hover:border-purple-300 bg-white hover:shadow-sm"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name={`question-${currentQuestionIndex}`}
+                    value={choice.text}
+                    checked={answers[currentQuestionIndex] === choice.text}
+                    onChange={(e) =>
+                      handleAnswerChange(currentQuestionIndex, e.target.value)
+                    }
+                    className="w-5 h-5 md:w-6 md:h-6 text-purple-600 flex-shrink-0"
+                  />
+                  <span className="flex-1 text-gray-800 text-sm md:text-lg" style={{ userSelect: 'none', WebkitUserSelect: 'none', MozUserSelect: 'none', msUserSelect: 'none' }}>
+                    {choice.text}
+                  </span>
+                </label>
+              ))}
+            </div>
+          )}
 
             {currentQuestion.type === "true_false" && (
               <div className="space-y-2 md:space-y-3">
