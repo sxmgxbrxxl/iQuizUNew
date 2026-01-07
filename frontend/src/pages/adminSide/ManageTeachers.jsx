@@ -12,10 +12,10 @@ import {
   where,
   setDoc,
 } from "firebase/firestore";
-import { 
-  sendPasswordResetEmail, 
+import {
+  sendPasswordResetEmail,
   createUserWithEmailAndPassword,
-  updateCurrentUser 
+  updateCurrentUser,
 } from "firebase/auth";
 import { UserPlus, CheckCircle, X, Loader2 } from "lucide-react";
 import { setAccountCreationFlag } from "../../App";
@@ -25,7 +25,7 @@ const ManageTeachers = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [mounted, setMounted] = useState(false);
-  
+
   // Create Teacher states
   const [teacherEmail, setTeacherEmail] = useState("");
   const [teacherPassword, setTeacherPassword] = useState("");
@@ -57,7 +57,7 @@ const ManageTeachers = () => {
 
   useEffect(() => {
     setMounted(true);
-  },);
+  }, []);
 
   // Create Teacher Account
   const handleCreateTeacher = async (e) => {
@@ -91,11 +91,16 @@ const ManageTeachers = () => {
         createdAt: new Date().toISOString(),
       });
 
-      // ✅ Step 4: Restore admin session (IMPORTANT!)
+      // ✅ Step 4: Send password reset email to teacher
+      await sendPasswordResetEmail(auth, teacherEmail);
+
+      // ✅ Step 5: Restore admin session (IMPORTANT!)
       await updateCurrentUser(auth, currentAdmin);
 
-      // ✅ Step 5: Reset form and show success
-      setSuccessMsg(`Teacher account created successfully: ${teacherEmail}`);
+      // ✅ Step 6: Reset form and show success
+      setSuccessMsg(
+        `Teacher account created! Password reset link sent to ${teacherEmail}`
+      );
       setShowSuccessDialog(true);
       setTeacherEmail("");
       setTeacherPassword("");
@@ -103,13 +108,14 @@ const ManageTeachers = () => {
       // Refresh teacher list
       fetchTeachers();
 
-      // Auto-close dialog after 3 seconds
+      // Auto-close dialog after 4 seconds
       setTimeout(() => {
         setShowSuccessDialog(false);
         setSuccessMsg("");
-      }, 3000);
+      }, 4000);
     } catch (error) {
       console.error("Error creating teacher:", error);
+
       if (error.code === "auth/email-already-in-use") {
         setErrorMsg("That email is already in use.");
       } else if (error.code === "auth/invalid-email") {
@@ -124,7 +130,7 @@ const ManageTeachers = () => {
       setTimeout(() => setErrorMsg(""), 5000);
     } finally {
       setCreateLoading(false);
-      
+
       // ✅ CRITICAL: Release flag AFTER everything is done
       setTimeout(() => {
         setAccountCreationFlag(false);
@@ -165,7 +171,8 @@ const ManageTeachers = () => {
 
   // Delete teacher
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this teacher?")) return;
+    if (!window.confirm("Are you sure you want to delete this teacher?"))
+      return;
     try {
       await deleteDoc(doc(db, "users", id));
       fetchTeachers();
@@ -180,171 +187,221 @@ const ManageTeachers = () => {
   );
 
   return (
-    <div className="py-6 px-2 md:p-8 font-Outfit animate-fadeIn">
+    <div className="p-8 bg-gradient-to-b from-slate-50 to-slate-100 min-h-screen">
       {/* ✅ Success Dialog Modal */}
-      {mounted && showSuccessDialog && createPortal (
-        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 animate-fadeIn font-Outfit">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 transform animate-slideUp">
-            <div className="flex justify-between items-start mb-4">
-              <div className="flex items-center gap-3">
-                <div className="bg-blue-100 p-3 rounded-full">
-                  <CheckCircle className="text-blue-600" size={32} />
-                </div>
-                <h3 className="text-2xl font-bold text-gray-800">Success!</h3>
+      {mounted &&
+        showSuccessDialog &&
+        createPortal(
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-2xl p-8 max-w-sm w-full mx-4">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-2xl font-bold text-gray-800">Success!</h2>
+                <button
+                  onClick={() => setShowSuccessDialog(false)}
+                  className="text-gray-400 hover:text-gray-600 transition"
+                >
+                  <X size={24} />
+                </button>
               </div>
+              <p className="text-gray-600 mb-6">{successMsg}</p>
               <button
                 onClick={() => setShowSuccessDialog(false)}
-                className="text-gray-400 hover:text-gray-600 transition"
-              >
-                <X size={24} />
-              </button>
-            </div>
-            <p className="text-gray-600 text-lg mb-6">
-              {successMsg}
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowSuccessDialog(false)}
-                className="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition font-semibold"
+                className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition font-semibold"
               >
                 Got it!
               </button>
             </div>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      <h1 className="text-3xl font-bold text-title">Manage Teachers</h1>
-      <p className="text-md md:text-xl text-subtext">Add, edit, or remove teacher records with ease.</p>
-
-      {/* ✅ Create Teacher Account Section */}
-      <div className="bg-white p-8 rounded-3xl shadow-lg mb-8 mt-6 animate-slideIn">
-        <h3 className="text-2xl font-bold mb-4 text-title flex items-center gap-2">
-          <UserPlus size={22} /> Create Teacher Account
-        </h3>
-
-        <form onSubmit={handleCreateTeacher} className="flex flex-col gap-4 max-w-md">
-          <input
-            type="email"
-            placeholder="Teacher Email"
-            className="border rounded-lg p-3 focus:ring-2 focus:ring-primary outline-none"
-            value={teacherEmail}
-            onChange={(e) => setTeacherEmail(e.target.value)}
-            required
-          />
-
-          <input
-            type="password"
-            placeholder="Temporary Password (min. 6 characters)"
-            className="border rounded-lg p-3 focus:ring-2 focus:ring-primary outline-none"
-            value={teacherPassword}
-            onChange={(e) => setTeacherPassword(e.target.value)}
-            required
-            minLength={6}
-          />
-
-          <button
-            type="submit"
-            disabled={createLoading}
-            className="bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition font-semibold disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
-          >
-            {createLoading ? "Creating Account..." : "Create Teacher Account"}
-          </button>
-        </form>
-
-        {errorMsg && (
-          <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-red-700 font-medium">{errorMsg}</p>
-          </div>
+          </div>,
+          document.body
         )}
-      </div>
 
-      {/* Teacher List Section */}
-      <div className="bg-white p-8 rounded-3xl shadow-lg animate-slideIn">
-        <h3 className="text-2xl font-bold mb-4 text-title">Teacher List</h3>
-        
-        <input
-          type="text"
-          placeholder="Search teacher by email..."
-          className="border p-3 w-full max-w-sm rounded-lg mb-4 focus:ring-2 focus:ring-primary outline-none"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+      <div className="max-w-7xl mx-auto">
+        <h1 className="text-4xl font-bold text-gray-900 mb-2">
+          Manage Teachers
+        </h1>
+        <p className="text-gray-600 mb-8">
+          Add, edit, or remove teacher records with ease.
+        </p>
 
-        {loading ? (
-          <div className="flex flex-row items-center justify-center gap-3 mt-10">
-            <Loader2 className="text-blue-500 animate-spin"/>
-            <p className="text-subtext ">Loading teachers...</p>
+        {/* ✅ Create Teacher Account Section */}
+        <div className="bg-white rounded-lg shadow-md p-8 mb-8">
+          <h2 className="text-2xl font-semibold text-gray-800 mb-6 flex items-center gap-2">
+            <UserPlus size={28} className="text-blue-600" />
+            Create Teacher Account
+          </h2>
+
+          <form onSubmit={handleCreateTeacher} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Email Address
+              </label>
+              <input
+                type="email"
+                value={teacherEmail}
+                onChange={(e) => setTeacherEmail(e.target.value)}
+                placeholder="teacher@example.com"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Temporary Password
+              </label>
+              <input
+                type="password"
+                value={teacherPassword}
+                onChange={(e) => setTeacherPassword(e.target.value)}
+                placeholder="Enter temporary password"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                required
+                minLength={6}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Teacher will receive email to set their own password
+              </p>
+            </div>
+
+            <button
+              type="submit"
+              disabled={createLoading}
+              className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition font-semibold flex items-center justify-center gap-2"
+            >
+              {createLoading ? (
+                <>
+                  <Loader2 size={20} className="animate-spin" />
+                  Creating Account...
+                </>
+              ) : (
+                <>
+                  <UserPlus size={20} />
+                  Create Teacher Account
+                </>
+              )}
+            </button>
+          </form>
+
+          {errorMsg && (
+            <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+              <X className="text-red-600 flex-shrink-0 mt-0.5" size={20} />
+              <p className="text-red-700">{errorMsg}</p>
+            </div>
+          )}
+        </div>
+
+        {/* ✅ Teacher List Section */}
+        <div className="bg-white rounded-lg shadow-md p-8">
+          <h2 className="text-2xl font-semibold text-gray-800 mb-6">
+            Teacher List
+          </h2>
+
+          <div className="mb-6">
+            <input
+              type="text"
+              placeholder="Search by email..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse items-start text-left rounded-lg overflow-hidden shadow-lg animate-slideIn">
-              <thead className="bg-gray-100">
-                <tr>
-                  <th className="p-3 border text-left font-semibold">Email</th>
-                  <th className="p-3 border text-left font-semibold">Status</th>
-                  <th className="p-3 border text-left font-semibold">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredTeachers.length > 0 ? (
-                  filteredTeachers.map((teacher) => (
-                    <tr key={teacher.id} className="border hover:bg-gray-50">
-                      <td className="p-3 border">{teacher.email}</td>
-                      <td
-                        className={`p-3 border font-bold ${
-                          teacher.status === "Active"
-                            ? "text-green-600"
-                            : "text-red-600"
-                        }`}
+
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="animate-spin text-blue-600" size={32} />
+              <span className="ml-3 text-gray-600">Loading teachers...</span>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">
+                      Email
+                    </th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">
+                      Status
+                    </th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredTeachers.length > 0 ? (
+                    filteredTeachers.map((teacher) => (
+                      <tr
+                        key={teacher.id}
+                        className="border-b border-gray-100 hover:bg-gray-50 transition"
                       >
-                        {teacher.status || "Active"}
-                      </td>
-                      <td className="p-3 border space-x-2">
-                        <button
-                          className="bg-blue-500 text-white px-3 py-2 rounded-lg hover:bg-blue-600 transition text-sm"
-                          onClick={() => handleResetPassword(teacher.email)}
-                        >
-                          Reset Password
-                        </button>
-
-                        {teacher.status === "Active" || !teacher.status ? (
-                          <button
-                            className="bg-yellow-500 text-white px-3 py-2 rounded-lg hover:bg-yellow-600 transition text-sm"
-                            onClick={() => handleDeactivate(teacher.id)}
+                        <td className="py-3 px-4 text-gray-800">
+                          {teacher.email}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span
+                            className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${
+                              teacher.status === "Active" ||
+                              !teacher.status
+                                ? "bg-green-100 text-green-800"
+                                : "bg-red-100 text-red-800"
+                            }`}
                           >
-                            Deactivate
-                          </button>
-                        ) : (
-                          <button
-                            className="bg-green-500 text-white px-3 py-2 rounded-lg hover:bg-green-600 transition text-sm"
-                            onClick={() => handleActivate(teacher.id)}
-                          >
-                            Activate
-                          </button>
-                        )}
-
-                        <button
-                          className="bg-red-600 text-white px-3 py-2 rounded-lg hover:bg-red-700 transition text-sm"
-                          onClick={() => handleDelete(teacher.id)}
-                        >
-                          Delete
-                        </button>
+                            <CheckCircle size={16} />
+                            {teacher.status || "Active"}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() =>
+                                handleResetPassword(teacher.email)
+                              }
+                              className="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition text-sm font-medium"
+                            >
+                              Reset Password
+                            </button>
+                            {teacher.status === "Active" ||
+                            !teacher.status ? (
+                              <button
+                                onClick={() =>
+                                  handleDeactivate(teacher.id)
+                                }
+                                className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded hover:bg-yellow-200 transition text-sm font-medium"
+                              >
+                                Deactivate
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() =>
+                                  handleActivate(teacher.id)
+                                }
+                                className="px-3 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200 transition text-sm font-medium"
+                              >
+                                Activate
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleDelete(teacher.id)}
+                              className="px-3 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 transition text-sm font-medium"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="3" className="py-12 text-center text-gray-500">
+                        No teachers found.
                       </td>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td className="p-3 text-center border text-gray-600" colSpan={3}>
-                      No teachers found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

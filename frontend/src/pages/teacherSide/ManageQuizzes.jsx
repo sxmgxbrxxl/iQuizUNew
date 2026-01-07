@@ -551,6 +551,8 @@ const handleDeleteQuiz = async (quizId, quizTitle) => {
       correct_answer: q.correct_answer || "",
       choices: q.choices ? [...q.choices] : null,
       bloom_classification: q.bloom_classification || "LOTS",
+      cognitive_level: q.cognitive_level || "remembering", 
+     difficulty: q.difficulty || "easy", 
     });
   };
 
@@ -574,6 +576,8 @@ const handleDeleteQuiz = async (quizId, quizTitle) => {
       correct_answer: editForm.correct_answer,
       choices: editForm.choices,
       bloom_classification: editForm.bloom_classification,
+      cognitive_level: editForm.cognitive_level,        // ADD THIS
+      difficulty: editForm.difficulty,
     };
     setGeneratedQuiz({ ...generatedQuiz, questions: updated });
     setEditingQuestion(null);
@@ -711,27 +715,62 @@ const handleDeleteQuiz = async (quizId, quizTitle) => {
   // -----------------------------------------------------------------
   // BADGE
   // -----------------------------------------------------------------
-  const getClassificationBadge = (cls, conf) => {
-    const isHOTS = cls === "HOTS";
-    const bg = isHOTS ? "bg-purple-100" : "bg-blue-100";
-    const txt = isHOTS ? "text-purple-700" : "text-blue-700";
-    const brd = isHOTS ? "border-purple-300" : "border-blue-300";
+// Around line 900+ - UPDATE THIS FUNCTION
+const getClassificationBadge = (cls, conf, cognitiveLevel, difficulty) => {
+  const isHOTS = cls === "HOTS";
+  const bg = isHOTS ? "bg-purple-100" : "bg-blue-100";
+  const txt = isHOTS ? "text-purple-700" : "text-blue-700";
+  const brd = isHOTS ? "border-purple-300" : "border-blue-300";
 
-    return (
-      <div className="flex items-center gap-2">
-        <span
-          className={`px-3 py-1 rounded-full text-xs font-bold border-2 ${bg} ${txt} ${brd}`}
-        >
-          {cls}
-        </span>
-        {conf && (
-          <span className="text-xs text-gray-500">
-            {(conf * 100).toFixed(1)}%
-          </span>
-        )}
-      </div>
-    );
+  // Difficulty colors
+  const difficultyColors = {
+    easy: "bg-green-100 text-green-700 border-green-300",
+    average: "bg-yellow-100 text-yellow-700 border-yellow-300",
+    difficult: "bg-red-100 text-red-700 border-red-300"
   };
+
+  // Cognitive level colors
+  const cognitiveColors = {
+    remembering: "bg-blue-50 text-blue-600",
+    understanding: "bg-cyan-50 text-cyan-600",
+    application: "bg-teal-50 text-teal-600",
+    analysis: "bg-purple-50 text-purple-600",
+    evaluation: "bg-pink-50 text-pink-600",
+    creating: "bg-red-50 text-red-600"
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {/* LOTS/HOTS Badge */}
+      <span
+        className={`px-3 py-1 rounded-full text-xs font-bold border-2 ${bg} ${txt} ${brd}`}
+      >
+        {cls}
+      </span>
+      
+      {/* Cognitive Level Badge */}
+      {cognitiveLevel && (
+        <span className={`px-3 py-1 rounded-full text-xs font-bold ${cognitiveColors[cognitiveLevel] || 'bg-gray-100 text-gray-700'}`}>
+          {cognitiveLevel.charAt(0).toUpperCase() + cognitiveLevel.slice(1)}
+        </span>
+      )}
+      
+      {/* Difficulty Badge */}
+      {difficulty && (
+        <span className={`px-3 py-1 rounded-full text-xs font-bold border-2 ${difficultyColors[difficulty] || 'bg-gray-100 text-gray-700 border-gray-300'}`}>
+          {difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}
+        </span>
+      )}
+      
+      {/* Confidence Score */}
+      {conf && (
+        <span className="text-xs text-gray-500">
+          {(conf * 100).toFixed(1)}%
+        </span>
+      )}
+    </div>
+  );
+};
 
   // -----------------------------------------------------------------
   // RENDER
@@ -1229,42 +1268,85 @@ const handleDeleteQuiz = async (quizId, quizTitle) => {
                       </div>
 
                       {/* Points and Classification */}
-                      <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div className="grid grid-cols-4 gap-4">
                         <div>
-                          <label className="block text-sm font-semibold mb-2 text-gray-700">
+                          <label className="block text-sm font-semibold mb-2">
                             Points
                           </label>
                           <input
                             type="number"
                             min="1"
-                            value={q.points}
+                            value={editForm.points}
                             onChange={(e) =>
-                              updateManualQuestion(
-                                qIndex,
-                                "points",
-                                parseInt(e.target.value) || 1
-                              )
+                              setEditForm({
+                                ...editForm,
+                                points: parseInt(e.target.value) || 1,
+                              })
                             }
-                            className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 border rounded-lg"
                           />
                         </div>
+                        
                         <div>
-                          <label className="block text-sm font-semibold mb-2 text-gray-700">
-                            Bloom's Classification
+                          <label className="block text-sm font-semibold mb-2">
+                            LOTS/HOTS
                           </label>
                           <select
-                            value={q.bloom_classification}
+                            value={editForm.bloom_classification}
                             onChange={(e) =>
-                              updateManualQuestion(
-                                qIndex,
-                                "bloom_classification",
-                                e.target.value
-                              )
+                              setEditForm({
+                                ...editForm,
+                                bloom_classification: e.target.value,
+                              })
                             }
-                            className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 border rounded-lg"
                           >
-                            <option value="LOTS">LOTS (Lower Order)</option>
-                            <option value="HOTS">HOTS (Higher Order)</option>
+                            <option value="HOTS">HOTS</option>
+                            <option value="LOTS">LOTS</option>
+                          </select>
+                        </div>
+
+                        {/* ADD THESE TWO NEW DROPDOWNS */}
+                        <div>
+                          <label className="block text-sm font-semibold mb-2">
+                            Cognitive Level
+                          </label>
+                          <select
+                            value={editForm.cognitive_level}
+                            onChange={(e) =>
+                              setEditForm({
+                                ...editForm,
+                                cognitive_level: e.target.value,
+                              })
+                            }
+                            className="w-full px-3 py-2 border rounded-lg text-sm"
+                          >
+                            <option value="remembering">Remembering</option>
+                            <option value="understanding">Understanding</option>
+                            <option value="application">Application</option>
+                            <option value="analysis">Analysis</option>
+                            <option value="evaluation">Evaluation</option>
+                            <option value="creating">Creating</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-semibold mb-2">
+                            Difficulty
+                          </label>
+                          <select
+                            value={editForm.difficulty}
+                            onChange={(e) =>
+                              setEditForm({
+                                ...editForm,
+                                difficulty: e.target.value,
+                              })
+                            }
+                            className="w-full px-3 py-2 border rounded-lg"
+                          >
+                            <option value="easy">Easy</option>
+                            <option value="average">Average</option>
+                            <option value="difficult">Difficult</option>
                           </select>
                         </div>
                       </div>
@@ -1912,8 +1994,10 @@ const handleDeleteQuiz = async (quizId, quizTitle) => {
                                                 : "points"}
                                             </span>
                                             {getClassificationBadge(
-                                              q.bloom_classification,
-                                              q.classification_confidence
+                                            q.bloom_classification,
+                                            q.classification_confidence,
+                                            q.cognitive_level,      // ADD THIS
+                                            q.difficulty            // ADD THIS
                                             )}
                                             <button
                                               onClick={() =>
@@ -2075,7 +2159,7 @@ const handleDeleteQuiz = async (quizId, quizTitle) => {
             </div>
           </div>
         </div>,
-        document.body
+        document.bodyz
       )}
     </div>
   );

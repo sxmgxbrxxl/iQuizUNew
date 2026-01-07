@@ -176,7 +176,6 @@ export default function TeacherProfile({ user, userDoc }) {
                     className="bg-blue-500 px-4 py-2 rounded-lg text-white font-semibold hover:bg-blue-700 transition mt-4"
                     onClick={() => {
                         if (editing) {
-                            // TODO: persist changes to Firestore
                             console.log("Saving profile", { fullName, department, emailAddr, phone, bio });
                         }
                         setEditing(!editing);

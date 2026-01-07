@@ -8,6 +8,12 @@ import {
   AlertCircle,
   Clock,
   Download,
+  RefreshCw,
+  Calendar,
+  X,
+  AlertTriangle,
+  Eye,
+  Shield,
 } from "lucide-react";
 import {
   collection,
@@ -16,6 +22,9 @@ import {
   where,
   doc,
   getDoc,
+  updateDoc,
+  addDoc,
+  serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../../firebase/firebaseConfig";
 import * as XLSX from "xlsx";
@@ -31,6 +40,14 @@ export default function QuizResults() {
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [studentAnswers, setStudentAnswers] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showRetakeModal, setShowRetakeModal] = useState(false);
+  const [showReschedModal, setShowReschedModal] = useState(false);
+  const [showAntiCheatModal, setShowAntiCheatModal] = useState(false);
+  const [selectedAntiCheatData, setSelectedAntiCheatData] = useState(null);
+  const [selectedStudentForAction, setSelectedStudentForAction] = useState(null);
+  const [retakeDeadline, setRetakeDeadline] = useState("");
+  const [reschedDeadline, setReschedDeadline] = useState("");
+  const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -42,23 +59,15 @@ export default function QuizResults() {
     setError(null);
     
     try {
-      console.log("🔍 Fetching data...");
-      console.log("  - quizId:", quizId);
-      console.log("  - classId:", classId);
-
-      // 1. Fetch Quiz Details
       const quizDoc = await getDoc(doc(db, "quizzes", quizId));
       if (!quizDoc.exists()) {
-        console.error("❌ Quiz not found");
         setError("Quiz not found");
         return;
       }
 
       const quizData = { id: quizDoc.id, ...quizDoc.data() };
       setQuiz(quizData);
-      console.log("✅ Quiz loaded:", quizData.title);
 
-      // 2. Fetch ALL students in this class FIRST
       const studentsQuery = query(
         collection(db, "users"),
         where("classIds", "array-contains", classId),
@@ -79,11 +88,8 @@ export default function QuizResults() {
         });
       });
 
-      console.log(`✅ Found ${allStudents.length} students in class`);
-      console.log("📋 All student IDs:", allStudents.map(s => `${s.name} = ${s.id}`));
       setStudents(allStudents);
 
-      // 3. Fetch assignments for this quiz+class to get the assignmentIds
       const assignmentsQuery = query(
         collection(db, "assignedQuizzes"),
         where("quizId", "==", quizId),
@@ -92,26 +98,17 @@ export default function QuizResults() {
       );
       const assignmentsSnapshot = await getDocs(assignmentsQuery);
       
-      console.log(`📋 Found ${assignmentsSnapshot.size} async assignments for this quiz+class`);
-
       const assignmentIds = [];
-      const studentAssignmentMap = new Map();
-      
       assignmentsSnapshot.forEach((docSnap) => {
-        const data = docSnap.data();
         assignmentIds.push(docSnap.id);
-        studentAssignmentMap.set(data.studentId, docSnap.id);
       });
 
       if (assignmentIds.length === 0) {
-        console.log(`⚠️ No async assignments found for this quiz-class combination`);
         setResults([]);
         return;
       }
 
-      // 4. Fetch ONLY submissions that match these assignmentIds
       const submissionsData = [];
-      
       const batchSize = 10;
       for (let i = 0; i < assignmentIds.length; i += batchSize) {
         const batch = assignmentIds.slice(i, i + batchSize);
@@ -122,18 +119,12 @@ export default function QuizResults() {
           where("quizMode", "==", "asynchronous")
         );
         const submissionsSnapshot = await getDocs(submissionsQuery);
-        
-        console.log(`📊 Found ${submissionsSnapshot.size} submissions for assignment batch ${i / batchSize + 1}`);
 
         submissionsSnapshot.forEach((docSnap) => {
           const data = docSnap.data();
           const studentInClass = allStudents.find(s => s.id === data.studentId);
           
-          console.log(`  ✅ Submission from: ${data.studentName} (${data.studentId})`);
-          console.log(`     🔍 Student found in class list?`, studentInClass ? `YES - ${studentInClass.name}` : "❌ NO MATCH!");
-          console.log(`     Assignment: ${data.assignmentId}`);
-          console.log(`     Score: ${data.correctPoints}/${data.totalPoints}`);
-          console.log(`     Base-50: ${data.base50ScorePercentage}%`);
+          console.log("Anti-cheat data:", data.antiCheatData); // Debug log
           
           submissionsData.push({
             id: docSnap.id,
@@ -145,15 +136,25 @@ export default function QuizResults() {
             base50ScorePercentage: data.base50ScorePercentage || 0,
             submittedAt: data.submittedAt,
             answers: data.answers || {},
+            assignmentId: data.assignmentId,
+            antiCheatData: data.antiCheatData || {
+              tabSwitchCount: 0,
+              fullscreenExitCount: 0,
+              copyAttempts: 0,
+              rightClickAttempts: 0,
+              suspiciousActivities: [],
+              totalSuspiciousActivities: 0,
+              quizDuration: 0,
+              flaggedForReview: false,
+            },
           });
         });
       }
 
-      console.log(`✅ Total: ${submissionsData.length} asynchronous submissions for this quiz-class combination`);
       setResults(submissionsData);
 
     } catch (e) {
-      console.error("❌ Error fetching data:", e);
+      console.error("Error fetching data:", e);
       setError("Error loading results. Please try again.");
     } finally {
       setLoading(false);
@@ -170,25 +171,123 @@ export default function QuizResults() {
       alert("No submission found for this student");
       return;
     }
-
     setStudentAnswers(result);
     setSelectedStudent(studentId);
     setShowDetailModal(true);
   };
 
-  const calculateStats = () => {
-    if (results.length === 0) {
-      return { completed: 0, notStarted: 0 };
+  const handleViewAntiCheat = (e, result) => {
+    e.stopPropagation();
+    if (!result.antiCheatData) {
+      alert("No anti-cheat data available for this submission");
+      return;
+    }
+    setSelectedAntiCheatData(result.antiCheatData);
+    setShowAntiCheatModal(true);
+  };
+
+  const handleOpenRetakeModal = (student, e) => {
+    e.stopPropagation();
+    setSelectedStudentForAction(student);
+    setRetakeDeadline("");
+    setShowRetakeModal(true);
+  };
+
+  const handleOpenReschedModal = (student, e) => {
+    e.stopPropagation();
+    setSelectedStudentForAction(student);
+    setReschedDeadline("");
+    setShowReschedModal(true);
+  };
+
+  const handleGrantRetake = async () => {
+    if (!retakeDeadline) {
+      alert("Please select a deadline for the retake");
+      return;
     }
 
+    setActionLoading(true);
+    try {
+      const result = getStudentResult(selectedStudentForAction.id);
+      
+      const newAssignment = {
+        quizId: quizId,
+        classId: classId,
+        studentId: selectedStudentForAction.id,
+        studentName: selectedStudentForAction.name,
+        quizMode: "asynchronous",
+        assignedAt: serverTimestamp(),
+        deadline: new Date(retakeDeadline),
+        status: "pending",
+        isRetake: true,
+        originalSubmissionId: result?.id || null,
+        retakeGrantedAt: serverTimestamp(),
+      };
+
+      await addDoc(collection(db, "assignedQuizzes"), newAssignment);
+
+      const actionType = result ? "Retake" : "Quiz access";
+      alert(`${actionType} granted to ${selectedStudentForAction.name}!`);
+      setShowRetakeModal(false);
+      fetchData();
+    } catch (error) {
+      console.error("Error granting retake:", error);
+      alert("Failed to grant access. Please try again.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleReschedule = async () => {
+    if (!reschedDeadline) {
+      alert("Please select a new deadline");
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      const assignmentsQuery = query(
+        collection(db, "assignedQuizzes"),
+        where("quizId", "==", quizId),
+        where("classId", "==", classId),
+        where("studentId", "==", selectedStudentForAction.id),
+        where("quizMode", "==", "asynchronous")
+      );
+      
+      const assignmentsSnapshot = await getDocs(assignmentsQuery);
+      
+      if (assignmentsSnapshot.empty) {
+        alert("No assignment found for this student");
+        setActionLoading(false);
+        return;
+      }
+
+      const assignmentDoc = assignmentsSnapshot.docs[0];
+      await updateDoc(doc(db, "assignedQuizzes", assignmentDoc.id), {
+        deadline: new Date(reschedDeadline),
+        rescheduledAt: serverTimestamp(),
+      });
+
+      alert(`Quiz rescheduled for ${selectedStudentForAction.name}!`);
+      setShowReschedModal(false);
+      fetchData();
+    } catch (error) {
+      console.error("Error rescheduling:", error);
+      alert("Failed to reschedule quiz. Please try again.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const calculateStats = () => {
     return {
       completed: results.length,
       notStarted: students.length - results.length,
+      flaggedForReview: results.filter(r => r.antiCheatData?.flaggedForReview).length,
     };
   };
 
   const handleDownloadExcel = () => {
-    // Prepare data for Excel
     const excelData = students.map((student) => {
       const result = getStudentResult(student.id);
       
@@ -203,34 +302,28 @@ export default function QuizResults() {
         "Submitted At": result?.submittedAt 
           ? new Date(result.submittedAt.seconds * 1000).toLocaleString() 
           : "—",
+        "Flagged for Review": result?.antiCheatData?.flaggedForReview ? "Yes" : "No",
+        "Tab Switches": result?.antiCheatData?.tabSwitchCount || 0,
+        "Fullscreen Exits": result?.antiCheatData?.fullscreenExitCount || 0,
+        "Copy Attempts": result?.antiCheatData?.copyAttempts || 0,
+        "Right-Click Attempts": result?.antiCheatData?.rightClickAttempts || 0,
       };
     });
 
-    // Create worksheet
     const worksheet = XLSX.utils.json_to_sheet(excelData);
-    
-    // Set column widths
     worksheet["!cols"] = [
-      { wch: 15 }, // Last Name
-      { wch: 15 }, // First Name
-      { wch: 25 }, // Email
-      { wch: 12 }, // Status
-      { wch: 10 }, // Score
-      { wch: 15 }, // Raw Score
-      { wch: 18 }, // Base-50 Grade
-      { wch: 20 }, // Submitted At
+      { wch: 15 }, { wch: 15 }, { wch: 25 }, { wch: 12 },
+      { wch: 10 }, { wch: 15 }, { wch: 18 }, { wch: 20 },
+      { wch: 15 }, { wch: 12 }, { wch: 15 }, { wch: 12 }, { wch: 15 },
     ];
 
-    // Create workbook
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Quiz Results");
 
-    // Generate filename with quiz title and date
     const quizTitle = quiz?.title || "Quiz";
     const date = new Date().toISOString().split("T")[0];
     const filename = `${quizTitle}_Results_${date}.xlsx`;
 
-    // Download file
     XLSX.writeFile(workbook, filename);
   };
 
@@ -264,7 +357,6 @@ export default function QuizResults() {
 
   return (
     <div className="p-8 font-Outfit max-w-7xl mx-auto">
-      {/* Header */}
       <div className="mb-8">
         <button
           onClick={() => navigate(-1)}
@@ -275,9 +367,7 @@ export default function QuizResults() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-800 mb-2">Quiz Results (Asynchronous)</h1>
-            <p className="text-gray-600">
-              {quiz?.title} • {quiz?.totalPoints || 0} points
-            </p>
+            <p className="text-gray-600">{quiz?.title} • {quiz?.totalPoints || 0} points</p>
           </div>
           <button
             onClick={handleDownloadExcel}
@@ -289,7 +379,6 @@ export default function QuizResults() {
         </div>
       </div>
 
-      {/* Statistics Cards */}
       <div className="grid md:grid-cols-4 gap-4 mb-8">
         <div className="bg-blue-50 rounded-lg p-6 border border-blue-200">
           <div className="flex items-center gap-3 mb-2">
@@ -307,14 +396,6 @@ export default function QuizResults() {
           <p className="text-3xl font-bold text-gray-700">{stats.notStarted}</p>
         </div>
 
-        <div className="bg-yellow-50 rounded-lg p-6 border border-yellow-200">
-          <div className="flex items-center gap-3 mb-2">
-            <AlertCircle className="w-6 h-6 text-yellow-600" />
-            <span className="text-gray-600 text-sm font-semibold">In Progress</span>
-          </div>
-          <p className="text-3xl font-bold text-yellow-700">0</p>
-        </div>
-
         <div className="bg-green-50 rounded-lg p-6 border border-green-200">
           <div className="flex items-center gap-3 mb-2">
             <CheckCircle className="w-6 h-6 text-green-600" />
@@ -322,9 +403,16 @@ export default function QuizResults() {
           </div>
           <p className="text-3xl font-bold text-green-700">{stats.completed}</p>
         </div>
+
+        <div className="bg-red-50 rounded-lg p-6 border border-red-200">
+          <div className="flex items-center gap-3 mb-2">
+            <AlertTriangle className="w-6 h-6 text-red-600" />
+            <span className="text-gray-600 text-sm font-semibold">Flagged for Review</span>
+          </div>
+          <p className="text-3xl font-bold text-red-700">{stats.flaggedForReview}</p>
+        </div>
       </div>
 
-      {/* Results Table */}
       <div className="bg-white rounded-xl border-2 border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -336,12 +424,14 @@ export default function QuizResults() {
                 <th className="px-6 py-4 text-center font-bold">Raw Score</th>
                 <th className="px-6 py-4 text-center font-bold">Base-50 Grade</th>
                 <th className="px-6 py-4 text-center font-bold">Status</th>
+                <th className="px-6 py-4 text-center font-bold">Anti-Cheat</th>
+                <th className="px-6 py-4 text-center font-bold">Actions</th>
               </tr>
             </thead>
             <tbody>
               {students.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan="8" className="px-6 py-12 text-center text-gray-500">
                     No students in this class
                   </td>
                 </tr>
@@ -353,20 +443,26 @@ export default function QuizResults() {
                   return (
                     <tr
                       key={student.id}
-                      className={`border-b transition ${
-                        submitted ? "cursor-pointer" : ""
-                      } ${
-                        idx % 2 === 0 ? "bg-white" : "bg-gray-50"
-                      } ${submitted ? "hover:bg-blue-50" : ""}`}
-                      onClick={() => submitted && handleViewDetails(student.id)}
+                      className={`border-b transition ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"} ${result?.antiCheatData?.flaggedForReview ? "bg-red-50" : "hover:bg-blue-50"}`}
                     >
-                      <td className="px-6 py-4">
+                      <td 
+                        className="px-6 py-4 cursor-pointer"
+                        onClick={() => submitted && handleViewDetails(student.id)}
+                      >
                         <p className="font-semibold text-gray-800">
                           {student.firstName} {student.lastName}
                         </p>
                       </td>
-                      <td className="px-6 py-4 text-gray-600">{student.email}</td>
-                      <td className="px-6 py-4 text-center">
+                      <td 
+                        className="px-6 py-4 text-gray-600 cursor-pointer"
+                        onClick={() => submitted && handleViewDetails(student.id)}
+                      >
+                        {student.email}
+                      </td>
+                      <td 
+                        className="px-6 py-4 text-center cursor-pointer"
+                        onClick={() => submitted && handleViewDetails(student.id)}
+                      >
                         {submitted ? (
                           <span className="font-bold text-lg text-gray-800">
                             {result.correctPoints}/{result.totalPoints}
@@ -375,7 +471,10 @@ export default function QuizResults() {
                           <span className="text-gray-400">—</span>
                         )}
                       </td>
-                      <td className="px-6 py-4 text-center">
+                      <td 
+                        className="px-6 py-4 text-center cursor-pointer"
+                        onClick={() => submitted && handleViewDetails(student.id)}
+                      >
                         {submitted ? (
                           <span className="font-bold text-lg text-blue-600">
                             {result.rawScorePercentage.toFixed(0)}%
@@ -384,7 +483,10 @@ export default function QuizResults() {
                           <span className="text-gray-400">—</span>
                         )}
                       </td>
-                      <td className="px-6 py-4 text-center">
+                      <td 
+                        className="px-6 py-4 text-center cursor-pointer"
+                        onClick={() => submitted && handleViewDetails(student.id)}
+                      >
                         {submitted ? (
                           <span className="font-bold text-lg text-green-600">
                             {result.base50ScorePercentage.toFixed(0)}%
@@ -393,7 +495,10 @@ export default function QuizResults() {
                           <span className="text-gray-400">—</span>
                         )}
                       </td>
-                      <td className="px-6 py-4 text-center">
+                      <td 
+                        className="px-6 py-4 text-center cursor-pointer"
+                        onClick={() => submitted && handleViewDetails(student.id)}
+                      >
                         {submitted ? (
                           <span className="px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-800">
                             Completed
@@ -404,6 +509,55 @@ export default function QuizResults() {
                           </span>
                         )}
                       </td>
+                      <td className="px-6 py-4 text-center">
+                        {submitted && result.antiCheatData ? (
+                          <button
+                            onClick={(e) => handleViewAntiCheat(e, result)}
+                            className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-white text-xs font-semibold transition ${
+                              result.antiCheatData.flaggedForReview
+                                ? "bg-red-600 hover:bg-red-700"
+                                : "bg-green-600 hover:bg-green-700"
+                            }`}
+                          >
+                            <Shield className="w-4 h-4" />
+                            <span className="hidden sm:inline">View</span>
+                          </button>
+                        ) : submitted ? (
+                          <button
+                            onClick={(e) => handleViewAntiCheat(e, result)}
+                            className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-white text-xs font-semibold transition bg-gray-400"
+                          >
+                            <Shield className="w-4 h-4" />
+                            <span className="hidden sm:inline">View</span>
+                          </button>
+                        ) : (
+                          <span className="text-gray-400 text-xs">N/A</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-center gap-2">
+                          {submitted ? (
+                            <span className="text-sm text-gray-500 italic">No actions</span>
+                          ) : (
+                            <>
+                              <button
+                                onClick={(e) => handleOpenRetakeModal(student, e)}
+                                className="flex items-center gap-1 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-lg transition"
+                              >
+                                <RefreshCw className="w-4 h-4" />
+                                Access
+                              </button>
+                              <button
+                                onClick={(e) => handleOpenReschedModal(student, e)}
+                                className="flex items-center gap-1 px-3 py-2 bg-orange-600 hover:bg-orange-700 text-white text-xs font-semibold rounded-lg transition"
+                              >
+                                <Calendar className="w-4 h-4" />
+                                Extend
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   );
                 })
@@ -413,11 +567,151 @@ export default function QuizResults() {
         </div>
       </div>
 
+      {/* Anti-Cheat Modal */}
+      {showAntiCheatModal && selectedAntiCheatData && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <Shield className={`w-6 h-6 ${selectedAntiCheatData?.flaggedForReview ? "text-red-600" : "text-green-600"}`} />
+                <h3 className="text-2xl font-bold text-gray-800">Anti-Cheating Report</h3>
+              </div>
+              <button
+                onClick={() => setShowAntiCheatModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className={`p-4 rounded-lg mb-6 ${selectedAntiCheatData?.flaggedForReview ? "bg-red-50 border border-red-200" : "bg-green-50 border border-green-200"}`}>
+              <p className="font-bold text-gray-800 mb-2">Status</p>
+              <p className={selectedAntiCheatData?.flaggedForReview ? "text-red-700 font-semibold" : "text-green-700 font-semibold"}>
+                {selectedAntiCheatData?.flaggedForReview ? "⚠️ Flagged for Review - Suspicious Activity Detected" : "✓ Clean - No Suspicious Activity"}
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-4 mb-6">
+              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                <p className="text-sm font-semibold text-gray-600 mb-1">🔄 Tab Switches</p>
+                <p className="text-3xl font-bold text-blue-700">{selectedAntiCheatData?.tabSwitchCount || 0}</p>
+                <p className="text-xs text-gray-500 mt-2">Total times student left the quiz</p>
+              </div>
+
+              <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                <p className="text-sm font-semibold text-gray-600 mb-1">📺 Fullscreen Exits</p>
+                <p className="text-3xl font-bold text-purple-700">{selectedAntiCheatData?.fullscreenExitCount || 0}</p>
+                <p className="text-xs text-gray-500 mt-2">Times exited fullscreen mode</p>
+              </div>
+
+              <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
+                <p className="text-sm font-semibold text-gray-600 mb-1">📋 Copy Attempts</p>
+                <p className="text-3xl font-bold text-orange-700">{selectedAntiCheatData?.copyAttempts || 0}</p>
+                <p className="text-xs text-gray-500 mt-2">Copy/paste blocked</p>
+              </div>
+
+              <div className="bg-red-50 rounded-lg p-4 border border-red-200">
+                <p className="text-sm font-semibold text-gray-600 mb-1">🖱️ Right-Click Attempts</p>
+                <p className="text-3xl font-bold text-red-700">{selectedAntiCheatData?.rightClickAttempts || 0}</p>
+                <p className="text-xs text-gray-500 mt-2">Right-click blocked</p>
+              </div>
+            </div>
+
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 mb-6">
+              <p className="text-sm font-semibold text-gray-700 mb-3">📋 Detailed Activity Timeline</p>
+              {selectedAntiCheatData?.suspiciousActivities && selectedAntiCheatData.suspiciousActivities.length > 0 ? (
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {selectedAntiCheatData.suspiciousActivities.map((activity, idx) => {
+                    const activityTime = new Date(activity.timestamp);
+                    const activityHour = activityTime.getHours().toString().padStart(2, '0');
+                    const activityMin = activityTime.getMinutes().toString().padStart(2, '0');
+                    const activitySec = activityTime.getSeconds().toString().padStart(2, '0');
+                    
+                    let icon = '⚠️';
+                    let bgColor = 'bg-yellow-50 border-yellow-200';
+                    let textColor = 'text-yellow-700';
+                    
+                    if (activity.type === 'tab_switch') {
+                      icon = '🔄';
+                      bgColor = 'bg-blue-50 border-blue-200';
+                      textColor = 'text-blue-700';
+                    } else if (activity.type === 'fullscreen_exit') {
+                      icon = '📺';
+                      bgColor = 'bg-purple-50 border-purple-200';
+                      textColor = 'text-purple-700';
+                    } else if (activity.type === 'copy_attempt') {
+                      icon = '📋';
+                      bgColor = 'bg-orange-50 border-orange-200';
+                      textColor = 'text-orange-700';
+                    } else if (activity.type === 'right_click') {
+                      icon = '🖱️';
+                      bgColor = 'bg-red-50 border-red-200';
+                      textColor = 'text-red-700';
+                    } else if (activity.type === 'dev_tools_attempt') {
+                      icon = '🛠️';
+                      bgColor = 'bg-red-50 border-red-200';
+                      textColor = 'text-red-700';
+                    }
+                    
+                    return (
+                      <div key={idx} className={`border rounded-lg p-3 ${bgColor}`}>
+                        <div className="flex items-start gap-3">
+                          <span className="text-xl mt-0.5">{icon}</span>
+                          <div className="flex-1">
+                            <p className={`font-bold ${textColor}`}>{activity.details}</p>
+                            <div className="mt-2 text-xs text-gray-600 space-y-1">
+                              <p>
+                                <span className="font-semibold">Time: </span>
+                                {activityHour}:{activityMin}:{activitySec}
+                              </p>
+                              <p>
+                                <span className="font-semibold">Full Timestamp: </span>
+                                {activityTime.toLocaleString()}
+                              </p>
+                              {activity.duration && (
+                                <p>
+                                  <span className="font-semibold">Duration Away: </span>
+                                  {activity.duration}s ({Math.floor(activity.duration / 60)}m {activity.duration % 60}s)
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <span className={`text-xs font-bold px-2 py-1 rounded ${textColor}`}>
+                            #{idx + 1}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-600">No suspicious activities recorded</p>
+              )}
+            </div>
+
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 mb-6">
+              <p className="text-sm font-semibold text-gray-700 mb-2">⏱️ Quiz Duration</p>
+              <p className="text-gray-600">
+                {Math.floor((selectedAntiCheatData?.quizDuration || 0) / 60)} minutes {(selectedAntiCheatData?.quizDuration || 0) % 60} seconds
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowAntiCheatModal(false)}
+                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Detail Modal */}
       {showDetailModal && studentAnswers && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-            {/* Header */}
             <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-purple-700 text-white p-6 border-b">
               <div className="flex justify-between items-start">
                 <div>
@@ -438,21 +732,17 @@ export default function QuizResults() {
                   onClick={() => setShowDetailModal(false)}
                   className="text-white hover:bg-blue-800 rounded-lg p-2 transition"
                 >
-                  ✕
+                  <X className="w-6 h-6" />
                 </button>
               </div>
             </div>
 
-            {/* Body */}
             <div className="p-6">
               {studentAnswers.answers && Object.keys(studentAnswers.answers).length > 0 ? (
                 <div className="space-y-4">
                   {Object.entries(studentAnswers.answers).map(([questionIndex, studentAnswer]) => {
                     const question = quiz?.questions?.[parseInt(questionIndex)];
-                    if (!question) {
-                      console.warn(`Question not found at index ${questionIndex}`);
-                      return null;
-                    }
+                    if (!question) return null;
 
                     let isCorrect = false;
                     let correctAnswer = "";
@@ -473,9 +763,7 @@ export default function QuizResults() {
                       <div
                         key={questionIndex}
                         className={`border-2 rounded-lg p-4 ${
-                          isCorrect
-                            ? "bg-green-50 border-green-300"
-                            : "bg-red-50 border-red-300"
+                          isCorrect ? "bg-green-50 border-green-300" : "bg-red-50 border-red-300"
                         }`}
                       >
                         <div className="flex items-start gap-3 mb-2">
@@ -483,12 +771,8 @@ export default function QuizResults() {
                             {parseInt(questionIndex) + 1}.
                           </span>
                           <div className="flex-1">
-                            <p className="font-semibold text-gray-800">
-                              {question.question}
-                            </p>
-                            <p className="text-sm text-gray-600 mt-1">
-                              Points: {question.points || 1}
-                            </p>
+                            <p className="font-semibold text-gray-800">{question.question}</p>
+                            <p className="text-sm text-gray-600 mt-1">Points: {question.points || 1}</p>
                           </div>
                           {isCorrect ? (
                             <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0" />
@@ -499,27 +783,15 @@ export default function QuizResults() {
 
                         <div className="ml-10 mt-3 space-y-2">
                           <p className="text-sm">
-                            <span className="font-semibold text-gray-700">
-                              Student's Answer:{" "}
-                            </span>
-                            <span
-                              className={`${
-                                isCorrect
-                                  ? "text-green-700 font-bold"
-                                  : "text-red-700 font-bold"
-                              }`}
-                            >
+                            <span className="font-semibold text-gray-700">Student's Answer: </span>
+                            <span className={isCorrect ? "text-green-700 font-bold" : "text-red-700 font-bold"}>
                               {studentAnswer || "No answer"}
                             </span>
                           </p>
                           {!isCorrect && (
                             <p className="text-sm">
-                              <span className="font-semibold text-gray-700">
-                                Correct Answer:{" "}
-                              </span>
-                              <span className="text-green-700 font-bold">
-                                {correctAnswer}
-                              </span>
+                              <span className="font-semibold text-gray-700">Correct Answer: </span>
+                              <span className="text-green-700 font-bold">{correctAnswer}</span>
                             </p>
                           )}
                         </div>
@@ -530,6 +802,116 @@ export default function QuizResults() {
               ) : (
                 <p className="text-center text-gray-500">No answers recorded</p>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Retake Modal */}
+      {showRetakeModal && selectedStudentForAction && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-2xl font-bold text-gray-800">Grant Quiz Access</h3>
+              <button onClick={() => setShowRetakeModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <p className="text-gray-600 mb-4">
+              Grant <span className="font-semibold">{selectedStudentForAction.name}</span> access to take the quiz.
+            </p>
+
+            <div className="mb-6">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Set New Deadline</label>
+              <input
+                type="datetime-local"
+                value={retakeDeadline}
+                onChange={(e) => setRetakeDeadline(e.target.value)}
+                className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-purple-600"
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowRetakeModal(false)}
+                className="flex-1 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-lg transition"
+                disabled={actionLoading}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleGrantRetake}
+                className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition flex items-center justify-center gap-2"
+                disabled={actionLoading}
+              >
+                {actionLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4" />
+                    Grant Access
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reschedule Modal */}
+      {showReschedModal && selectedStudentForAction && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-2xl font-bold text-gray-800">Extend Deadline</h3>
+              <button onClick={() => setShowReschedModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <p className="text-gray-600 mb-4">
+              Extend the deadline for <span className="font-semibold">{selectedStudentForAction.name}</span>.
+            </p>
+
+            <div className="mb-6">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Set Extended Deadline</label>
+              <input
+                type="datetime-local"
+                value={reschedDeadline}
+                onChange={(e) => setReschedDeadline(e.target.value)}
+                className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-orange-600"
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowReschedModal(false)}
+                className="flex-1 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-lg transition"
+                disabled={actionLoading}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleReschedule}
+                className="flex-1 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-lg transition flex items-center justify-center gap-2"
+                disabled={actionLoading}
+              >
+                {actionLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <Calendar className="w-4 h-4" />
+                    Extend Deadline
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

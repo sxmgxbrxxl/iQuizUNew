@@ -101,7 +101,9 @@ export default function EditQuiz() {
       points: question.points,
       correct_answer: question.correct_answer || "",
       choices: question.choices ? [...question.choices] : null,
-      bloom_classification: question.bloom_classification || "LOTS"
+      bloom_classification: question.bloom_classification || "LOTS",
+      cognitive_level: question.cognitive_level || "remembering",
+      difficulty: question.difficulty || "easy"
     });
   };
 
@@ -138,7 +140,9 @@ export default function EditQuiz() {
       points: editForm.points,
       correct_answer: editForm.correct_answer,
       choices: editForm.choices,
-      bloom_classification: editForm.bloom_classification
+      bloom_classification: editForm.bloom_classification,
+      cognitive_level: editForm.cognitive_level,
+      difficulty: editForm.difficulty
     };
 
     setQuiz({ ...quiz, questions: updatedQuestions });
@@ -162,7 +166,9 @@ export default function EditQuiz() {
         { text: "", is_correct: false },
         { text: "", is_correct: false }
       ] : null,
-      bloom_classification: "LOTS"
+      bloom_classification: "LOTS",
+      cognitive_level: "remembering",
+      difficulty: "easy"
     };
 
     setQuiz({
@@ -180,7 +186,9 @@ export default function EditQuiz() {
         { text: "", is_correct: false },
         { text: "", is_correct: false }
       ] : null,
-      bloom_classification: "LOTS"
+      bloom_classification: "LOTS",
+      cognitive_level: "remembering",
+      difficulty: "easy"
     });
   };
 
@@ -368,8 +376,8 @@ export default function EditQuiz() {
                             />
                           </div>
 
-                          <div className="flex gap-4">
-                            <div className="w-32">
+                          <div className="grid grid-cols-2 gap-4 mb-4">
+                            <div>
                               <label className="block text-md font-semibold mb-2">Points</label>
                               <input
                                 type="number"
@@ -379,8 +387,8 @@ export default function EditQuiz() {
                                 className="w-full px-3 py-2 border rounded-lg"
                               />
                             </div>
-                            <div className="flex-1">
-                              <label className="block text-md font-semibold mb-2">Classification</label>
+                            <div>
+                              <label className="block text-md font-semibold mb-2">LOTS/HOTS</label>
                               <select
                                 value={editForm.bloom_classification}
                                 onChange={(e) => setEditForm({ ...editForm, bloom_classification: e.target.value })}
@@ -388,6 +396,36 @@ export default function EditQuiz() {
                               >
                                 <option value="LOTS">LOTS (Lower Order Thinking)</option>
                                 <option value="HOTS">HOTS (Higher Order Thinking)</option>
+                              </select>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-md font-semibold mb-2">Cognitive Level</label>
+                              <select
+                                value={editForm.cognitive_level || "remembering"}
+                                onChange={(e) => setEditForm({ ...editForm, cognitive_level: e.target.value })}
+                                className="w-full px-3 py-2 border rounded-lg"
+                              >
+                                <option value="remembering">Remembering</option>
+                                <option value="understanding">Understanding</option>
+                                <option value="application">Application</option>
+                                <option value="analysis">Analysis</option>
+                                <option value="evaluation">Evaluation</option>
+                                <option value="creating">Creating</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-md font-semibold mb-2">Difficulty</label>
+                              <select
+                                value={editForm.difficulty || "easy"}
+                                onChange={(e) => setEditForm({ ...editForm, difficulty: e.target.value })}
+                                className="w-full px-3 py-2 border rounded-lg"
+                              >
+                                <option value="easy">Easy</option>
+                                <option value="average">Average</option>
+                                <option value="difficult">Difficult</option>
                               </select>
                             </div>
                           </div>
@@ -508,13 +546,36 @@ export default function EditQuiz() {
                                 <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
                                   {q.type.replace("_", " ").toUpperCase()}
                                 </span>
-                                <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                                <span className={`px-3 py-1 rounded-full text-xs font-bold border-2 ${
                                   q.bloom_classification === "HOTS" 
-                                    ? "bg-purple-100 text-purple-700" 
-                                    : "bg-yellow-100 text-yellow-700"
+                                    ? "bg-purple-100 text-purple-700 border-purple-300" 
+                                    : "bg-blue-100 text-blue-700 border-blue-300"
                                 }`}>
                                   {q.bloom_classification}
                                 </span>
+                                {q.cognitive_level && (
+                                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                                    q.cognitive_level === "remembering" ? "bg-blue-50 text-blue-600" :
+                                    q.cognitive_level === "understanding" ? "bg-cyan-50 text-cyan-600" :
+                                    q.cognitive_level === "application" ? "bg-teal-50 text-teal-600" :
+                                    q.cognitive_level === "analysis" ? "bg-purple-50 text-purple-600" :
+                                    q.cognitive_level === "evaluation" ? "bg-pink-50 text-pink-600" :
+                                    q.cognitive_level === "creating" ? "bg-red-50 text-red-600" :
+                                    "bg-gray-100 text-gray-700"
+                                  }`}>
+                                    {q.cognitive_level.charAt(0).toUpperCase() + q.cognitive_level.slice(1)}
+                                  </span>
+                                )}
+                                {q.difficulty && (
+                                  <span className={`px-3 py-1 rounded-full text-xs font-bold border-2 ${
+                                    q.difficulty === "easy" ? "bg-green-100 text-green-700 border-green-300" :
+                                    q.difficulty === "average" ? "bg-yellow-100 text-yellow-700 border-yellow-300" :
+                                    q.difficulty === "difficult" ? "bg-red-100 text-red-700 border-red-300" :
+                                    "bg-gray-100 text-gray-700 border-gray-300"
+                                  }`}>
+                                    {q.difficulty.charAt(0).toUpperCase() + q.difficulty.slice(1)}
+                                  </span>
+                                )}
                                 <span className="text-sm text-gray-600 rounded-full px-3 py-1 bg-gray-100">
                                   {q.points} {q.points === 1 ? 'point' : 'points'}
                                 </span>

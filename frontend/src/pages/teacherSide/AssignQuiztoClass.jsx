@@ -747,13 +747,13 @@ export default function AssignQuizToClass() {
             </h3>
 
             <div className="space-y-4">
-              {!isSynchronous ? (
+               {!isSynchronous ? (
                 <div>
                   <label className="block text-sm font-semibold mb-2">
-                    Due Date *
+                    Due Date & Time *
                   </label>
                   <input
-                    type="date"
+                    type="datetime-local"
                     value={assignmentSettings.dueDate}
                     onChange={(e) =>
                       setAssignmentSettings({
@@ -762,10 +762,10 @@ export default function AssignQuizToClass() {
                       })
                     }
                     className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    min={new Date().toISOString().split("T")[0]}
+                    min={new Date().toISOString().slice(0, 16)}
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Students can take this quiz anytime before 11:59 PM on this date
+                    Students can take this quiz anytime before this date and time
                   </p>
                 </div>
               ) : (

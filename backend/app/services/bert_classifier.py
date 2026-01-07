@@ -1,6 +1,6 @@
 """
-BERT-based LOTS/HOTS Classification Service
-Uses sentence embeddings and cosine similarity
+BERT-based Bloom's Taxonomy Classification Service
+Classifies questions into 6 cognitive levels with LOTS/HOTS grouping
 """
 
 from sentence_transformers import SentenceTransformer
@@ -9,29 +9,67 @@ import numpy as np
 import sys
 import os
 
-# Add parent directory to path to import utils
+# Add parent directory to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from utils.blooms_taxonomy import get_lots_keywords, get_hots_keywords
+from utils.blooms_taxonomy import (
+    get_remembering_keywords, get_understanding_keywords, get_application_keywords,
+    get_analysis_keywords, get_evaluation_keywords, get_creating_keywords,
+    get_lots_keywords, get_hots_keywords, get_difficulty_mapping, get_lots_hots_mapping
+)
 
-# -----------------------------
-# Load BERT modelz
-# -----------------------------
+# Load BERT model
 model = SentenceTransformer('all-MiniLM-L6-v2')
 
-# Precompute keyword embeddings
-LOTS_KEYWORDS = get_lots_keywords()
-HOTS_KEYWORDS = get_hots_keywords()
+# Precompute embeddings for all 6 levels
+remembering_embeddings = model.encode(get_remembering_keywords(), convert_to_numpy=True)
+understanding_embeddings = model.encode(get_understanding_keywords(), convert_to_numpy=True)
+application_embeddings = model.encode(get_application_keywords(), convert_to_numpy=True)
+analysis_embeddings = model.encode(get_analysis_keywords(), convert_to_numpy=True)
+evaluation_embeddings = model.encode(get_evaluation_keywords(), convert_to_numpy=True)
+creating_embeddings = model.encode(get_creating_keywords(), convert_to_numpy=True)
 
-lots_embeddings = model.encode(LOTS_KEYWORDS, convert_to_numpy=True)
-hots_embeddings = model.encode(HOTS_KEYWORDS, convert_to_numpy=True)
+# Also keep LOTS/HOTS embeddings for backwards compatibility
+lots_embeddings = model.encode(get_lots_keywords(), convert_to_numpy=True)
+hots_embeddings = model.encode(get_hots_keywords(), convert_to_numpy=True)
 
-# -----------------------------
-# Helper Functions
-# -----------------------------
+
+def classify_question_detailed(question_text):
+    """
+    Classify a question into one of 6 Bloom's levels
+    Returns: (level, difficulty, lots_or_hots, confidence, all_scores)
+    """
+    if not question_text or not question_text.strip():
+        return "remembering", "easy", "LOTS", 0.5, {}
+
+    question_embedding = model.encode([question_text], convert_to_numpy=True)[0]
+
+    # Calculate similarity scores for all 6 levels
+    scores = {
+        "remembering": float(np.mean(cosine_similarity([question_embedding], remembering_embeddings))),
+        "understanding": float(np.mean(cosine_similarity([question_embedding], understanding_embeddings))),
+        "application": float(np.mean(cosine_similarity([question_embedding], application_embeddings))),
+        "analysis": float(np.mean(cosine_similarity([question_embedding], analysis_embeddings))),
+        "evaluation": float(np.mean(cosine_similarity([question_embedding], evaluation_embeddings))),
+        "creating": float(np.mean(cosine_similarity([question_embedding], creating_embeddings)))
+    }
+
+    # Get the level with highest score
+    cognitive_level = max(scores, key=scores.get)
+    confidence = scores[cognitive_level]
+    
+    # Get difficulty and LOTS/HOTS classification
+    difficulty_map = get_difficulty_mapping()
+    lots_hots_map = get_lots_hots_mapping()
+    
+    difficulty = difficulty_map[cognitive_level]
+    lots_or_hots = lots_hots_map[cognitive_level]
+
+    return cognitive_level, difficulty, lots_or_hots, confidence, scores
+
 
 def classify_question(question_text):
     """
-    Classify a single question as LOTS or HOTS
+    Classify a single question as LOTS or HOTS (simplified version)
     Returns: (classification, confidence)
     """
     if not question_text or not question_text.strip():
@@ -72,53 +110,42 @@ def classify_multiple_questions(questions_list):
     return results
 
 
+def classify_multiple_questions_detailed(questions_list):
+    """
+    Classify multiple questions with full Bloom's taxonomy details
+    Returns: list of dicts with level, difficulty, classification
+    """
+    if not questions_list:
+        return []
+
+    results = []
+    for question in questions_list:
+        level, difficulty, lots_hots, confidence, scores = classify_question_detailed(question)
+        results.append({
+            "cognitive_level": level,
+            "difficulty": difficulty,
+            "lots_or_hots": lots_hots,
+            "confidence": confidence,
+            "all_scores": scores
+        })
+    
+    return results
+
+
 def get_detailed_classification(question_text):
     """
-    Returns detailed classification with scores for both categories
+    Returns detailed classification with all scores
+    (Backwards compatible function name)
     """
-    if not question_text or not question_text.strip():
-        return {
-            "classification": "LOTS",
-            "confidence": 0.5,
-            "lots_score": 0.5,
-            "hots_score": 0.5,
-            "difference": 0.0
-        }
-
-    question_embedding = model.encode([question_text], convert_to_numpy=True)[0]
-
-    lots_score = float(np.mean(cosine_similarity([question_embedding], lots_embeddings)))
-    hots_score = float(np.mean(cosine_similarity([question_embedding], hots_embeddings)))
-
-    classification = "HOTS" if hots_score > lots_score else "LOTS"
-    confidence = max(lots_score, hots_score)
-
+    level, difficulty, lots_hots, confidence, scores = classify_question_detailed(question_text)
+    
     return {
-        "classification": classification,
+        "classification": lots_hots,
+        "cognitive_level": level,
+        "difficulty": difficulty,
         "confidence": confidence,
-        "lots_score": lots_score,
-        "hots_score": hots_score,
-        "difference": abs(hots_score - lots_score)
+        "lots_score": np.mean([scores["remembering"], scores["understanding"], scores["application"]]),
+        "hots_score": np.mean([scores["analysis"], scores["evaluation"], scores["creating"]]),
+        "all_bloom_scores": scores,
+        "difference": abs(scores[level] - np.mean(list(scores.values())))
     }
-
-
-# -----------------------------
-# Test block
-# -----------------------------
-if __name__ == "__main__":
-    test_questions = [
-        "What is the capital of France?",  # LOTS - Remember
-        "Compare and contrast the French and American revolutions.",  # HOTS - Analyze
-        "Define photosynthesis.",  # LOTS - Remember
-        "Design an experiment to test the effects of temperature on plant growth.",  # HOTS - Create
-        "Calculate the area of a rectangle with length 5 and width 3.",  # LOTS - Apply
-    ]
-
-    for i, question in enumerate(test_questions, 1):
-        result = get_detailed_classification(question)
-        print(f"\n{i}. {question}")
-        print(f"   Classification: {result['classification']}")
-        print(f"   Confidence: {result['confidence']:.4f}")
-        print(f"   LOTS Score: {result['lots_score']:.4f}")
-        print(f"   HOTS Score: {result['hots_score']:.4f}")
-        print(f"   Difference: {result['difference']:.4f}")

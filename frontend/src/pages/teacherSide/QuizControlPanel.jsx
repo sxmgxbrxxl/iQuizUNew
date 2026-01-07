@@ -21,6 +21,8 @@ import {
   Check,
   Award,
   Download,
+  Shield,
+  AlertTriangle,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -41,6 +43,8 @@ export default function QuizControlPanel() {
   const [actionLoading, setActionLoading] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
+  const [showAntiCheatModal, setShowAntiCheatModal] = useState(false);
+  const [selectedAntiCheatData, setSelectedAntiCheatData] = useState(null);
 
   useEffect(() => {
     let unsubscribers = [];
@@ -121,11 +125,28 @@ export default function QuizControlPanel() {
         userMap.set(userDoc.id, userData);
       });
 
+      // Fetch submissions to get anti-cheat data
+      const submissionsRef = collection(db, "quizSubmissions");
+      const submissionsQuery = query(
+        submissionsRef,
+        where("quizId", "==", quizId),
+        where("classId", "==", classId),
+        where("quizMode", "==", "synchronous")
+      );
+      const submissionsSnap = await getDocs(submissionsQuery);
+      
+      const submissionsMap = new Map();
+      submissionsSnap.forEach((docSnap) => {
+        const data = docSnap.data();
+        submissionsMap.set(data.studentId, data);
+      });
+
       const studentsList = [];
       assignmentsSnap.forEach((doc) => {
         const data = doc.data();
         const studentId = data.studentId;
         const studentData = userMap.get(studentId);
+        const submissionData = submissionsMap.get(studentId);
         
         studentsList.push({
           id: studentId,
@@ -139,6 +160,16 @@ export default function QuizControlPanel() {
           attempts: data.attempts || 0,
           startedAt: data.startedAt || null,
           submittedAt: data.submittedAt || null,
+          antiCheatData: submissionData?.antiCheatData || {
+            tabSwitchCount: 0,
+            fullscreenExitCount: 0,
+            copyAttempts: 0,
+            rightClickAttempts: 0,
+            suspiciousActivities: [],
+            totalSuspiciousActivities: 0,
+            quizDuration: 0,
+            flaggedForReview: false,
+          },
         });
       });
 
@@ -183,11 +214,28 @@ export default function QuizControlPanel() {
           userMap.set(userDoc.id, userData);
         });
 
+        // Fetch submissions for anti-cheat data
+        const submissionsRef = collection(db, "quizSubmissions");
+        const submissionsQuery = query(
+          submissionsRef,
+          where("quizId", "==", quizId),
+          where("classId", "==", classId),
+          where("quizMode", "==", "synchronous")
+        );
+        const submissionsSnap = await getDocs(submissionsQuery);
+        
+        const submissionsMap = new Map();
+        submissionsSnap.forEach((docSnap) => {
+          const data = docSnap.data();
+          submissionsMap.set(data.studentId, data);
+        });
+
         const updatedStudents = [];
         snapshot.forEach((doc) => {
           const data = doc.data();
           const studentId = data.studentId;
           const studentData = userMap.get(studentId);
+          const submissionData = submissionsMap.get(studentId);
           
           updatedStudents.push({
             id: studentId,
@@ -201,6 +249,16 @@ export default function QuizControlPanel() {
             attempts: data.attempts || 0,
             startedAt: data.startedAt || null,
             submittedAt: data.submittedAt || null,
+            antiCheatData: submissionData?.antiCheatData || {
+              tabSwitchCount: 0,
+              fullscreenExitCount: 0,
+              copyAttempts: 0,
+              rightClickAttempts: 0,
+              suspiciousActivities: [],
+              totalSuspiciousActivities: 0,
+              quizDuration: 0,
+              flaggedForReview: false,
+            },
           });
         });
         
@@ -343,6 +401,16 @@ export default function QuizControlPanel() {
     }
   };
 
+  const handleViewAntiCheat = (e, student) => {
+    e.stopPropagation();
+    if (!student.antiCheatData) {
+      alert("No anti-cheat data available for this student");
+      return;
+    }
+    setSelectedAntiCheatData({ ...student.antiCheatData, studentName: student.name });
+    setShowAntiCheatModal(true);
+  };
+
   const handleExportToExcel = () => {
     setExportLoading(true);
     
@@ -367,6 +435,7 @@ export default function QuizControlPanel() {
 
       const passedCount = students.filter((s) => s.base50Score !== null && s.base50Score >= passingScore).length;
       const failedCount = students.filter((s) => s.base50Score !== null && s.base50Score < passingScore).length;
+      const flaggedCount = students.filter((s) => s.antiCheatData?.flaggedForReview).length;
 
       // Summary data
       const summaryData = [
@@ -384,6 +453,7 @@ export default function QuizControlPanel() {
         ["Completed", students.filter((s) => s.completed).length],
         ["Passed", passedCount],
         ["Failed", failedCount],
+        ["Flagged for Review", flaggedCount],
         [""],
         ["Session Started", quizSession.startedAt?.seconds 
           ? new Date(quizSession.startedAt.seconds * 1000).toLocaleString('en-PH', {
@@ -421,7 +491,6 @@ export default function QuizControlPanel() {
           ? (student.submittedAt.seconds - student.startedAt.seconds)
           : null;
 
-        // Split name into first and last name
         const nameParts = student.name.split(' ');
         const firstName = nameParts[0] || '';
         const lastName = nameParts.slice(1).join(' ') || '';
@@ -450,6 +519,11 @@ export default function QuizControlPanel() {
                 hour12: true
               })
             : "",
+          student.antiCheatData?.flaggedForReview ? "Yes" : "No",
+          student.antiCheatData?.tabSwitchCount || 0,
+          student.antiCheatData?.fullscreenExitCount || 0,
+          student.antiCheatData?.copyAttempts || 0,
+          student.antiCheatData?.rightClickAttempts || 0,
         ];
       });
 
@@ -465,7 +539,7 @@ export default function QuizControlPanel() {
       
       // Student results sheet
       const ws2 = XLSX.utils.aoa_to_sheet([
-        ["Last Name", "First Name", "Student Number", "Status", "Score", "Raw Score (%)", "Base-50 Grade (%)", "Result", "Time Taken", "Submitted At"],
+        ["Last Name", "First Name", "Student Number", "Status", "Score", "Raw Score (%)", "Base-50 Grade (%)", "Result", "Time Taken", "Submitted At", "Flagged", "Tab Switches", "Fullscreen Exits", "Copy Attempts", "Right-Click Attempts"],
         ...studentData
       ]);
       ws2['!cols'] = [
@@ -479,10 +553,15 @@ export default function QuizControlPanel() {
         { wch: 10 },  // Result
         { wch: 12 },  // Time Taken
         { wch: 22 },  // Submitted At
+        { wch: 10 },  // Flagged
+        { wch: 12 },  // Tab Switches
+        { wch: 15 },  // Fullscreen Exits
+        { wch: 12 },  // Copy Attempts
+        { wch: 18 },  // Right-Click Attempts
       ];
       XLSX.utils.book_append_sheet(wb, ws2, "Student Results");
 
-      const fileName = `${quiz.title}_${classData.name}_Results_${new Date().toISOString().split('T')[0]}.xlsx`;
+      const fileName = `${quiz.title}_${classData.name}_Sync_Results_${new Date().toISOString().split('T')[0]}.xlsx`;
       XLSX.writeFile(wb, fileName);
 
       alert("✅ Excel file downloaded successfully!");
@@ -510,6 +589,7 @@ export default function QuizControlPanel() {
   const notStartedCount = students.filter((s) => s.status === "not_started" || s.status === "pending").length;
   const inProgressCount = students.filter((s) => s.status === "in_progress").length;
   const completedCount = students.filter((s) => s.completed).length;
+  const flaggedCount = students.filter((s) => s.antiCheatData?.flaggedForReview).length;
   const totalStudents = students.length;
   const passingScore = quiz.settings?.passingScore || 60;
   const totalQuestions = quiz.questions?.length || 0;
@@ -681,7 +761,7 @@ export default function QuizControlPanel() {
         )}
       </div>
 
-      <div className="grid md:grid-cols-4 gap-4 mb-6">
+      <div className="grid md:grid-cols-5 gap-4 mb-6">
         <div className="bg-blue-50 border-2 border-blue-200 p-4 rounded-xl">
           <div className="flex items-center justify-between">
             <Users className="w-8 h-8 text-blue-600" />
@@ -718,6 +798,16 @@ export default function QuizControlPanel() {
             <div className="text-right">
               <div className="text-3xl font-bold text-green-900">{completedCount}</div>
               <div className="text-sm text-green-700 font-semibold">Completed</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-red-50 border-2 border-red-200 p-4 rounded-xl">
+          <div className="flex items-center justify-between">
+            <AlertTriangle className="w-8 h-8 text-red-600" />
+            <div className="text-right">
+              <div className="text-3xl font-bold text-red-900">{flaggedCount}</div>
+              <div className="text-sm text-red-700 font-semibold">Flagged</div>
             </div>
           </div>
         </div>
@@ -761,7 +851,7 @@ export default function QuizControlPanel() {
           </div>
         ) : (
           <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
-            <table className="w-full min-w-[900px]">
+            <table className="w-full min-w-[1000px]">
               <thead className="bg-gradient-to-r from-blue-600 to-purple-700 text-white">
                 <tr>
                   <th className="px-6 py-4 text-left font-bold">Student Name</th>
@@ -771,6 +861,7 @@ export default function QuizControlPanel() {
                   <th className="px-6 py-4 text-center font-bold">Raw Score</th>
                   <th className="px-6 py-4 text-center font-bold">Base-50 Grade</th>
                   <th className="px-6 py-4 text-center font-bold">Time Taken</th>
+                  <th className="px-6 py-4 text-center font-bold">Anti-Cheat</th>
                 </tr>
               </thead>
               <tbody>
@@ -792,7 +883,7 @@ export default function QuizControlPanel() {
                       key={student.id}
                       className={`border-b transition ${
                         idx % 2 === 0 ? "bg-white" : "bg-gray-50"
-                      } hover:bg-blue-50`}
+                      } ${student.antiCheatData?.flaggedForReview ? "bg-red-50" : "hover:bg-blue-50"}`}
                     >
                       <td className="px-6 py-4 font-semibold text-gray-800">{student.name}</td>
                       <td className="px-6 py-4 text-gray-600">{student.studentNo}</td>
@@ -839,6 +930,25 @@ export default function QuizControlPanel() {
                       <td className="px-6 py-4 text-center text-sm text-gray-600">
                         {timeDifference !== null ? formatTime(timeDifference) : <span className="text-gray-400">—</span>}
                       </td>
+                      <td className="px-6 py-4 text-center">
+                        {student.completed ? (
+                          <button
+                            onClick={(e) => handleViewAntiCheat(e, student)}
+                            className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-white text-xs font-semibold transition mx-auto ${
+                              student.antiCheatData?.flaggedForReview
+                                ? "bg-red-600 hover:bg-red-700"
+                                : "bg-green-600 hover:bg-green-700"
+                            }`}
+                          >
+                            <Shield className="w-4 h-4" />
+                            <span className="hidden sm:inline">
+                              {student.antiCheatData?.flaggedForReview ? "Flagged" : "Clean"}
+                            </span>
+                          </button>
+                        ) : (
+                          <span className="text-gray-400 text-xs">N/A</span>
+                        )}
+                      </td>
                     </tr>
                   );
                 })}
@@ -876,41 +986,142 @@ export default function QuizControlPanel() {
         </div>
       )}
 
-      {quizSession.status === "not_started" && (
-        <div className="mt-6 bg-blue-50 border-2 border-blue-200 rounded-xl p-6">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="w-6 h-6 text-blue-600 mt-0.5" />
-            <div>
-              <h4 className="font-bold text-blue-900 mb-2">Live Quiz Instructions:</h4>
-              <ul className="text-sm text-blue-800 space-y-1 ml-4 list-disc">
-                <li>Click the "START LIVE QUIZ" button to begin the quiz session</li>
-                <li>Students can only access the quiz when status is LIVE</li>
-                <li>Share the Quiz Code with students so they can join</li>
-                <li>Click "END QUIZ" to finish the session and prevent further submissions</li>
-                <li>Monitor student progress in real-time from this dashboard</li>
-                <li>Scores shown are: Score (correct/total), Raw Score (actual %), and Base-50 Grade (transmuted)</li>
-                <li>Use "RESTART QUIZ SESSION" after ending to allow students to retake</li>
-                <li>Export results to Excel for detailed analysis and record-keeping</li>
-              </ul>
+      {/* Anti-Cheat Modal */}
+      {showAntiCheatModal && selectedAntiCheatData && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <Shield className={`w-6 h-6 ${selectedAntiCheatData?.flaggedForReview ? "text-red-600" : "text-green-600"}`} />
+                <h3 className="text-2xl font-bold text-gray-800">Anti-Cheating Report</h3>
+              </div>
+              <button
+                onClick={() => setShowAntiCheatModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <XCircle className="w-6 h-6" />
+              </button>
             </div>
-          </div>
-        </div>
-      )}
 
-      {quizSession.status === "ended" && (
-        <div className="mt-6 bg-orange-50 border-2 border-orange-200 rounded-xl p-6">
-          <div className="flex items-start gap-3">
-            <RefreshCw className="w-6 h-6 text-orange-600 mt-0.5" />
-            <div>
-              <h4 className="font-bold text-orange-900 mb-2">Restart Quiz Information:</h4>
-              <ul className="text-sm text-orange-800 space-y-1 ml-4 list-disc">
-                <li>Restarting will clear all student scores and progress</li>
-                <li>The session will return to "Not Started" status</li>
-                <li>Students will be able to retake the quiz from scratch</li>
-                <li>The same Quiz Code will be used for the new session</li>
-                <li>Previous attempts and scores will be permanently deleted</li>
-                <li>Make sure to export results to Excel before restarting if you need to keep records</li>
-              </ul>
+            <div className="mb-4">
+              <p className="text-lg font-semibold text-gray-800">{selectedAntiCheatData.studentName}</p>
+            </div>
+
+            <div className={`p-4 rounded-lg mb-6 ${selectedAntiCheatData?.flaggedForReview ? "bg-red-50 border border-red-200" : "bg-green-50 border border-green-200"}`}>
+              <p className="font-bold text-gray-800 mb-2">Status</p>
+              <p className={selectedAntiCheatData?.flaggedForReview ? "text-red-700 font-semibold" : "text-green-700 font-semibold"}>
+                {selectedAntiCheatData?.flaggedForReview ? "⚠️ Flagged for Review - Suspicious Activity Detected" : "✓ Clean - No Suspicious Activity"}
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-4 mb-6">
+              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                <p className="text-sm font-semibold text-gray-600 mb-1">🔄 Tab Switches</p>
+                <p className="text-3xl font-bold text-blue-700">{selectedAntiCheatData?.tabSwitchCount || 0}</p>
+                <p className="text-xs text-gray-500 mt-2">Total times student left the quiz</p>
+              </div>
+
+              <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                <p className="text-sm font-semibold text-gray-600 mb-1">📺 Fullscreen Exits</p>
+                <p className="text-3xl font-bold text-purple-700">{selectedAntiCheatData?.fullscreenExitCount || 0}</p>
+                <p className="text-xs text-gray-500 mt-2">Times exited fullscreen mode</p>
+              </div>
+
+              <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
+                <p className="text-sm font-semibold text-gray-600 mb-1">📋 Copy Attempts</p>
+                <p className="text-3xl font-bold text-orange-700">{selectedAntiCheatData?.copyAttempts || 0}</p>
+                <p className="text-xs text-gray-500 mt-2">Copy/paste blocked</p>
+              </div>
+
+              <div className="bg-red-50 rounded-lg p-4 border border-red-200">
+                <p className="text-sm font-semibold text-gray-600 mb-1">🖱️ Right-Click Attempts</p>
+                <p className="text-3xl font-bold text-red-700">{selectedAntiCheatData?.rightClickAttempts || 0}</p>
+                <p className="text-xs text-gray-500 mt-2">Right-click blocked</p>
+              </div>
+            </div>
+
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 mb-6">
+              <p className="text-sm font-semibold text-gray-700 mb-3">📋 Detailed Activity Timeline</p>
+              {selectedAntiCheatData?.suspiciousActivities && selectedAntiCheatData.suspiciousActivities.length > 0 ? (
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {selectedAntiCheatData.suspiciousActivities.map((activity, idx) => {
+                    const activityTime = new Date(activity.timestamp);
+                    const activityHour = activityTime.getHours().toString().padStart(2, '0');
+                    const activityMin = activityTime.getMinutes().toString().padStart(2, '0');
+                    const activitySec = activityTime.getSeconds().toString().padStart(2, '0');
+                    
+                    let icon = '⚠️';
+                    let bgColor = 'bg-yellow-50 border-yellow-200';
+                    let textColor = 'text-yellow-700';
+                    
+                    if (activity.type === 'tab_switch') {
+                      icon = '🔄';
+                      bgColor = 'bg-blue-50 border-blue-200';
+                      textColor = 'text-blue-700';
+                    } else if (activity.type === 'fullscreen_exit') {
+                      icon = '📺';
+                      bgColor = 'bg-purple-50 border-purple-200';
+                      textColor = 'text-purple-700';
+                    } else if (activity.type === 'copy_attempt') {
+                      icon = '📋';
+                      bgColor = 'bg-orange-50 border-orange-200';
+                      textColor = 'text-orange-700';
+                    } else if (activity.type === 'right_click') {
+                      icon = '🖱️';
+                      bgColor = 'bg-red-50 border-red-200';
+                      textColor = 'text-red-700';
+                    } else if (activity.type === 'dev_tools_attempt') {
+                      icon = '🛠️';
+                      bgColor = 'bg-red-50 border-red-200';
+                      textColor = 'text-red-700';
+                    }
+                    
+                    return (
+                      <div key={idx} className={`border rounded-lg p-3 ${bgColor}`}>
+                        <div className="flex items-start gap-3">
+                          <span className="text-xl mt-0.5">{icon}</span>
+                          <div className="flex-1">
+                            <p className={`font-bold ${textColor}`}>{activity.details}</p>
+                            <div className="mt-2 text-xs text-gray-600 space-y-1">
+                              <p>
+                                <span className="font-semibold">Time: </span>
+                                {activityHour}:{activityMin}:{activitySec}
+                              </p>
+                              {activity.duration && (
+                                <p>
+                                  <span className="font-semibold">Duration Away: </span>
+                                  {activity.duration}s ({Math.floor(activity.duration / 60)}m {activity.duration % 60}s)
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <span className={`text-xs font-bold px-2 py-1 rounded ${textColor}`}>
+                            #{idx + 1}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-600">No suspicious activities recorded</p>
+              )}
+            </div>
+
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 mb-6">
+              <p className="text-sm font-semibold text-gray-700 mb-2">⏱️ Quiz Duration</p>
+              <p className="text-gray-600">
+                {Math.floor((selectedAntiCheatData?.quizDuration || 0) / 60)} minutes {(selectedAntiCheatData?.quizDuration || 0) % 60} seconds
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowAntiCheatModal(false)}
+                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>

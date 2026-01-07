@@ -17,10 +17,7 @@ export default function TeacherDashboard({ user, userDoc }) {
   const [loadingQuizzes, setLoadingQuizzes] = useState(true);
   const [loadingStudents, setLoadingStudents] = useState(true);
 
-  // 🔹 Get teacherId
   const teacherId = userDoc?.id || user?.uid;
-
-  // 🔹 Real-time fetch total number of classes
   useEffect(() => {
     if (!teacherId) {
       setLoadingClasses(false);
@@ -45,7 +42,6 @@ export default function TeacherDashboard({ user, userDoc }) {
     return () => unsubscribe();
   }, [teacherId, location.pathname]);
 
-  // 🔹 Real-time fetch total number of quizzes
   useEffect(() => {
     if (!teacherId) {
       setLoadingQuizzes(false);
@@ -70,7 +66,6 @@ export default function TeacherDashboard({ user, userDoc }) {
     return () => unsubscribe();
   }, [teacherId, location.pathname]);
 
-  // 🔹 Real-time fetch total number of students through classes
   useEffect(() => {
     if (!teacherId) {
       setLoadingStudents(false);

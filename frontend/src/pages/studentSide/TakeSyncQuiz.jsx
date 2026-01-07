@@ -29,55 +29,45 @@ import {
   Calculator,
   Flame,
   Info,
+  AlertTriangle,
 } from "lucide-react";
 import WaitingRoom from "../studentSide/WaitingRoom";
 import QuizResults from "../studentSide/QuizResults";
 
 // ============================================================================
 // ADAPTIVE TIME ALLOCATION ALGORITHM (FIXED FOR TRUE/FALSE)
-// Formula: base_time + length_factor + choice_reading_time + difficulty_factor + computation_factor
 // ============================================================================
 const calculateQuestionTime = (question) => {
-  // 1. BASE TIME (different per question type)
   let baseTime = 10;
   
-  // TRUE/FALSE questions typically need LESS time than multiple choice
   if (question.type === "true_false") {
-    baseTime = 8; // Reduced from 10s since no choice reading needed
+    baseTime = 8;
   }
   
-  // 2. LENGTH FACTOR (more conservative - based on comprehension time)
   const questionText = question.question || "";
-  const lengthFactor = Math.round(questionText.length / 25); // 1 second per 25 characters
+  const lengthFactor = Math.round(questionText.length / 25);
   
-  // 3. CHOICE READING FACTOR (ONLY for Multiple Choice questions)
   let choiceReadingTime = 0;
   if (question.type === "multiple_choice" && question.choices) {
     const totalChoiceLength = question.choices.reduce((sum, choice) => 
       sum + (choice.text?.length || 0), 0);
-    choiceReadingTime = Math.round(totalChoiceLength / 20); // 1s per 20 chars in choices
+    choiceReadingTime = Math.round(totalChoiceLength / 20);
   }
-  // NOTE: True/False questions don't need choice reading time
-  // since "True" and "False" are only 4-5 chars each
   
-  // 4. DIFFICULTY FACTOR (LOTS vs HOTS based on Bloom's Taxonomy)
-  // UPDATED: LOTS = 5 seconds, HOTS = 10 seconds
   const bloomClassification = question.bloom_classification;
   let difficultyFactor = 0;
   
   if (bloomClassification === "LOTS") {
-    difficultyFactor = 5; // +5 seconds for LOTS (REDUCED from 10)
+    difficultyFactor = 5;
   } else if (bloomClassification === "HOTS") {
-    difficultyFactor = 10; // +10 seconds for HOTS (REDUCED from 20)
+    difficultyFactor = 10;
   } else {
-    difficultyFactor = 5; // Default to LOTS if unknown
+    difficultyFactor = 5;
   }
   
-  // 5. COMPUTATION FACTOR (stricter detection)
   const questionLower = questionText.toLowerCase();
   let computationFactor = 0;
   
-  // Stricter computation keyword list
   const computationKeywords = [
     'calculate', 'compute', 'solve', 'solve for', 'find the value', 
     'what is the sum', 'what is the total', 'what is the product',
@@ -88,43 +78,32 @@ const calculateQuestionTime = (question) => {
     questionLower.includes(keyword)
   );
   
-  // Check for numbers or math symbols
   const hasNumbers = /\d+/.test(questionText);
   const hasMathSymbols = /[+\-×÷=]/.test(questionText);
   
-  // Must have computation keyword AND (numbers OR math symbols)
   if (hasComputationKeyword && (hasNumbers || hasMathSymbols)) {
-    // Determine complexity level
     const hasMultipleNumbers = (questionText.match(/\d+/g) || []).length >= 3;
     const hasPercentage = /percent|%/.test(questionLower);
     const hasMultipleSteps = /then|and then|after|next|first|second/.test(questionLower);
     
     if (hasMultipleSteps || (hasMultipleNumbers && hasPercentage)) {
-      computationFactor = 30; // Hard computation (+30 sec)
+      computationFactor = 30;
     } else if (hasMultipleNumbers || hasPercentage) {
-      computationFactor = 20; // Moderate computation (+20 sec)
+      computationFactor = 20;
     } else {
-      computationFactor = 10; // Easy computation (+10 sec)
+      computationFactor = 10;
     }
   } else {
-    computationFactor = 0; // No computation
+    computationFactor = 0;
   }
   
-  // 6. TRUE/FALSE PENALTY REDUCTION
-  // True/False questions are inherently simpler (binary choice)
-  // So apply a small reduction to total time
   let trueFalsePenalty = 0;
   if (question.type === "true_false" && lengthFactor > 20) {
-    // Only apply penalty if question is very long, to prevent excessive reduction
-    trueFalsePenalty = -5; // Subtract 5 seconds since less cognitive load for binary choice
+    trueFalsePenalty = -5;
   }
   
-  // TOTAL TIME CALCULATION
   const totalTime = baseTime + lengthFactor + choiceReadingTime + difficultyFactor + computationFactor + trueFalsePenalty;
   
-  // CONSTRAINTS: 
-  // Minimum: 12s for true/false, 15s for others
-  // Maximum: 120s (2 minutes) for all
   const minTime = question.type === "true_false" ? 12 : 15;
   const finalTime = Math.max(minTime, Math.min(120, totalTime));
   
@@ -176,6 +155,17 @@ export default function TakeSyncQuiz({ user, userDoc }) {
   const [showTimeBreakdown, setShowTimeBreakdown] = useState(false);
   const [questionTimes, setQuestionTimes] = useState([]);
 
+  // Anti-cheating state
+  const [suspiciousActivities, setSuspiciousActivities] = useState([]);
+  const [tabSwitchCount, setTabSwitchCount] = useState(0);
+  const [fullscreenExitCount, setFullscreenExitCount] = useState(0);
+  const [copyAttempts, setCopyAttempts] = useState(0);
+  const [rightClickAttempts, setRightClickAttempts] = useState(0);
+  const [quizStartTime, setQuizStartTime] = useState(null);
+
+  // Track pending saves
+  const [pendingSaveTimeout, setPendingSaveTimeout] = useState(null);
+
   useEffect(() => {
     fetchQuizData();
   }, [assignmentId]);
@@ -197,7 +187,7 @@ export default function TakeSyncQuiz({ user, userDoc }) {
     });
 
     return () => unsubscribe();
-  }, [assignmentId, quizStarted, submitting]);
+  }, [assignmentId, quizStarted, submitting, hasAutoSubmitted, showResults]);
 
   // Per-question timer
   useEffect(() => {
@@ -214,7 +204,173 @@ export default function TakeSyncQuiz({ user, userDoc }) {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [questionTimeLeft, sessionStatus, quizStarted, currentQuestionIndex]);
+  }, [questionTimeLeft, sessionStatus, quizStarted, currentQuestionIndex, answers]);
+
+  // Track tab visibility changes
+  useEffect(() => {
+    let tabSwitchOutTime = null;
+
+    const handleVisibilityChange = () => {
+      if (document.hidden && quizStarted) {
+        tabSwitchOutTime = new Date();
+        setTabSwitchCount(prev => prev + 1);
+        const activity = {
+          type: "tab_switch",
+          timestamp: new Date().toISOString(),
+          details: "⚠️ Student switched AWAY from quiz tab",
+          switchedOutAt: tabSwitchOutTime.toISOString()
+        };
+        setSuspiciousActivities(prev => [...prev, activity]);
+      } else if (!document.hidden && tabSwitchOutTime && quizStarted) {
+        const now = new Date();
+        const durationAway = Math.floor((now - tabSwitchOutTime) / 1000);
+        
+        const activity = {
+          type: "tab_switch",
+          timestamp: now.toISOString(),
+          details: `✅ Student returned to quiz tab (was away for ${durationAway}s)`,
+          duration: durationAway,
+          returnedAt: now.toISOString()
+        };
+        setSuspiciousActivities(prev => [...prev, activity]);
+        
+        // Force save progress when returning to tab
+        if (pendingSaveTimeout) {
+          clearTimeout(pendingSaveTimeout);
+          setPendingSaveTimeout(null);
+        }
+        saveQuizProgress(answers, currentQuestionIndex);
+        
+        tabSwitchOutTime = null;
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [quizStarted, answers, currentQuestionIndex, pendingSaveTimeout]);
+
+  // Track fullscreen exit attempts
+  useEffect(() => {
+    let fullscreenExitTime = null;
+
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement && quizStarted) {
+        fullscreenExitTime = new Date();
+        setFullscreenExitCount(prev => prev + 1);
+        const activity = {
+          type: "fullscreen_exit",
+          timestamp: new Date().toISOString(),
+          details: "⚠️ Student EXITED fullscreen mode",
+          exitedAt: fullscreenExitTime.toISOString()
+        };
+        setSuspiciousActivities(prev => [...prev, activity]);
+      } else if (document.fullscreenElement && fullscreenExitTime && quizStarted) {
+        const now = new Date();
+        const durationOutOfFullscreen = Math.floor((now - fullscreenExitTime) / 1000);
+        
+        const activity = {
+          type: "fullscreen_exit",
+          timestamp: now.toISOString(),
+          details: `✅ Student RETURNED to fullscreen (was out for ${durationOutOfFullscreen}s)`,
+          duration: durationOutOfFullscreen,
+          returnedAt: now.toISOString()
+        };
+        setSuspiciousActivities(prev => [...prev, activity]);
+        fullscreenExitTime = null;
+      }
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, [quizStarted]);
+
+  // Track copy attempts
+  useEffect(() => {
+    const handleCopy = (e) => {
+      if (quizStarted) {
+        e.preventDefault();
+        setCopyAttempts(prev => prev + 1);
+        const activity = {
+          type: "copy_attempt",
+          timestamp: new Date().toISOString(),
+          details: "Student attempted to copy content"
+        };
+        setSuspiciousActivities(prev => [...prev, activity]);
+      }
+    };
+
+    document.addEventListener("copy", handleCopy);
+    return () => document.removeEventListener("copy", handleCopy);
+  }, [quizStarted]);
+
+  // Track right-click attempts
+  useEffect(() => {
+    const handleRightClick = (e) => {
+      if (quizStarted) {
+        e.preventDefault();
+        setRightClickAttempts(prev => prev + 1);
+        const activity = {
+          type: "right_click",
+          timestamp: new Date().toISOString(),
+          details: "Student attempted to right-click (possible inspection)"
+        };
+        setSuspiciousActivities(prev => [...prev, activity]);
+      }
+    };
+
+    document.addEventListener("contextmenu", handleRightClick);
+    return () => document.removeEventListener("contextmenu", handleRightClick);
+  }, [quizStarted]);
+
+  // Disable developer tools
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (!quizStarted) return;
+
+      if (e.key === "F12") {
+        e.preventDefault();
+        const activity = {
+          type: "dev_tools_attempt",
+          timestamp: new Date().toISOString(),
+          details: "Student attempted to open developer tools (F12)"
+        };
+        setSuspiciousActivities(prev => [...prev, activity]);
+      }
+
+      if (e.ctrlKey && e.shiftKey && e.key === "I") {
+        e.preventDefault();
+        const activity = {
+          type: "dev_tools_attempt",
+          timestamp: new Date().toISOString(),
+          details: "Student attempted to open developer tools (Ctrl+Shift+I)"
+        };
+        setSuspiciousActivities(prev => [...prev, activity]);
+      }
+
+      if (e.ctrlKey && e.shiftKey && e.key === "C") {
+        e.preventDefault();
+        const activity = {
+          type: "dev_tools_attempt",
+          timestamp: new Date().toISOString(),
+          details: "Student attempted to open element picker (Ctrl+Shift+C)"
+        };
+        setSuspiciousActivities(prev => [...prev, activity]);
+      }
+
+      if (e.ctrlKey && e.shiftKey && e.key === "J") {
+        e.preventDefault();
+        const activity = {
+          type: "dev_tools_attempt",
+          timestamp: new Date().toISOString(),
+          details: "Student attempted to open console (Ctrl+Shift+J)"
+        };
+        setSuspiciousActivities(prev => [...prev, activity]);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [quizStarted]);
 
   const shuffleArray = (array) => {
     const shuffled = [...array];
@@ -360,7 +516,6 @@ export default function TakeSyncQuiz({ user, userDoc }) {
         setQuestions(orderedQuestions);
       }
 
-      // Calculate adaptive times for all questions
       const times = orderedQuestions.map(q => calculateQuestionTime(q));
       setQuestionTimes(times);
 
@@ -400,8 +555,8 @@ export default function TakeSyncQuiz({ user, userDoc }) {
       });
 
       setQuizStarted(true);
+      setQuizStartTime(new Date());
 
-      // Start timer for first question
       if (questionTimes.length > 0) {
         setQuestionTimeLeft(questionTimes[0].time);
       }
@@ -419,7 +574,18 @@ export default function TakeSyncQuiz({ user, userDoc }) {
     };
     setAnswers(updatedAnswers);
     
-    saveQuizProgress(updatedAnswers, currentQuestionIndex);
+    // Clear any pending save and queue a new one
+    if (pendingSaveTimeout) {
+      clearTimeout(pendingSaveTimeout);
+    }
+    
+    // Debounce save with 1 second delay
+    const timeoutId = setTimeout(() => {
+      saveQuizProgress(updatedAnswers, currentQuestionIndex);
+      setPendingSaveTimeout(null);
+    }, 1000);
+    
+    setPendingSaveTimeout(timeoutId);
   };
 
   const saveQuizProgress = async (currentAnswers, currentIndex) => {
@@ -435,15 +601,28 @@ export default function TakeSyncQuiz({ user, userDoc }) {
     }
   };
 
-  const handleQuestionTimeUp = () => {
-    // Time's up for this question - auto-advance
+  const handleQuestionTimeUp = async () => {
+    // Mark current question as "no answer" (empty string) if no answer provided
+    const updatedAnswers = {
+      ...answers,
+    };
+    
+    // Only add empty answer if the question was not answered yet
+    if (answers[currentQuestionIndex] === undefined) {
+      updatedAnswers[currentQuestionIndex] = "";
+    }
+    
+    setAnswers(updatedAnswers);
+    
+    // Save before moving to next question
+    await saveQuizProgress(updatedAnswers, currentQuestionIndex);
+    
     if (currentQuestionIndex < questions.length - 1) {
       const nextIndex = currentQuestionIndex + 1;
       setCurrentQuestionIndex(nextIndex);
       setQuestionTimeLeft(questionTimes[nextIndex].time);
-      saveQuizProgress(answers, nextIndex);
     } else {
-      // Last question - auto submit
+      // All questions done, auto submit
       handleAutoSubmit();
     }
   };
@@ -456,7 +635,8 @@ export default function TakeSyncQuiz({ user, userDoc }) {
       totalPoints += question.points || 1;
       const studentAnswer = answers[index];
 
-      if (!studentAnswer) return;
+      // If no answer (unanswered or empty string), no points
+      if (!studentAnswer || studentAnswer === "") return;
 
       if (question.type === "multiple_choice") {
         const correctChoice = question.choices?.find((c) => c.is_correct);
@@ -494,12 +674,6 @@ export default function TakeSyncQuiz({ user, userDoc }) {
   const handleSubmit = async () => {
     if (submitting) return;
 
-    const unanswered = questions.filter((_, index) => !answers[index]);
-    if (unanswered.length > 0) {
-      alert(`Please answer all questions before submitting. You have ${unanswered.length} unanswered question(s).`);
-      return;
-    }
-
     if (window.confirm("Are you sure you want to submit your quiz? You cannot change your answers after submission.")) {
       await submitQuiz();
     }
@@ -508,6 +682,7 @@ export default function TakeSyncQuiz({ user, userDoc }) {
   const handleAutoSubmit = async () => {
     if (submitting || hasAutoSubmitted) return;
     
+    setHasAutoSubmitted(true);
     setSubmitting(true);
     alert("Time's up! Your quiz will be submitted automatically.");
     await submitQuiz();
@@ -520,12 +695,12 @@ export default function TakeSyncQuiz({ user, userDoc }) {
       const { rawScorePercentage, base50ScorePercentage, correctPoints, totalPoints } = calculateScore();
       const currentUser = auth.currentUser;
 
-     const assignmentRef = doc(db, "assignedQuizzes", assignmentId);
+      const assignmentRef = doc(db, "assignedQuizzes", assignmentId);
       await updateDoc(assignmentRef, {
         status: "completed",
         completed: true,
         inProgress: false,
-        score: correctPoints,  // ✅ ADD THIS - the actual points earned
+        score: correctPoints,
         rawScorePercentage: rawScorePercentage,
         base50ScorePercentage: base50ScorePercentage,
         attempts: (assignment.attempts || 0) + 1,
@@ -560,6 +735,18 @@ export default function TakeSyncQuiz({ user, userDoc }) {
         submittedAt: serverTimestamp(),
         quizMode: "synchronous",
         sessionStatus: sessionStatus,
+
+        // Anti-cheating data
+        antiCheatData: {
+          tabSwitchCount: tabSwitchCount,
+          fullscreenExitCount: fullscreenExitCount,
+          copyAttempts: copyAttempts,
+          rightClickAttempts: rightClickAttempts,
+          suspiciousActivities: suspiciousActivities,
+          totalSuspiciousActivities: suspiciousActivities.length,
+          quizDuration: quizStartTime ? Math.round((new Date() - quizStartTime) / 1000) : 0,
+          flaggedForReview: suspiciousActivities.length > 0,
+        }
       });
 
       setQuizResults({
@@ -570,7 +757,6 @@ export default function TakeSyncQuiz({ user, userDoc }) {
         totalQuestions: questions.length,
       });
       setShowResults(true);
-      setHasAutoSubmitted(true);
     } catch (error) {
       console.error("Error submitting quiz:", error);
       alert("Failed to submit quiz. Please try again.");
@@ -600,6 +786,12 @@ export default function TakeSyncQuiz({ user, userDoc }) {
       const nextIndex = currentQuestionIndex + 1;
       setCurrentQuestionIndex(nextIndex);
       setQuestionTimeLeft(questionTimes[nextIndex].time);
+      
+      // Clear pending save and save immediately
+      if (pendingSaveTimeout) {
+        clearTimeout(pendingSaveTimeout);
+        setPendingSaveTimeout(null);
+      }
       saveQuizProgress(answers, nextIndex);
     }
   };
@@ -803,6 +995,7 @@ export default function TakeSyncQuiz({ user, userDoc }) {
 
   const currentQuestion = questions[currentQuestionIndex];
   const currentTimeData = questionTimes[currentQuestionIndex];
+  const hasWarnings = suspiciousActivities.length > 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-100 font-Outfit">
@@ -812,24 +1005,55 @@ export default function TakeSyncQuiz({ user, userDoc }) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Zap className="w-5 h-5 md:w-6 md:h-6" />
-              <span className="font-bold text-base md:text-lg">Sycronous Quiz</span>
+              <span className="font-bold text-base md:text-lg">Synchronous Quiz</span>
             </div>
 
-            {questionTimeLeft !== null && (
-              <div
-                className={`flex items-center gap-1 md:gap-2 px-3 md:px-4 py-2 rounded-lg font-bold text-sm md:text-base ${
-                  questionTimeLeft <= 10
-                    ? "bg-red-500 text-white animate-pulse"
-                    : "bg-white text-purple-700"
-                }`}
-              >
-                <Clock className="w-4 h-4 md:w-5 md:h-5" />
-                {formatTime(questionTimeLeft)}
-              </div>
-            )}
+            <div className="flex items-center gap-2">
+              {hasWarnings && (
+                <div className="flex items-center gap-1 px-2 py-1 bg-red-500 text-white rounded-lg text-xs font-semibold">
+                  <AlertTriangle className="w-4 h-4" />
+                  <span className="hidden sm:inline">Alert</span>
+                </div>
+              )}
+
+              {questionTimeLeft !== null && (
+                <div
+                  className={`flex items-center gap-1 md:gap-2 px-3 md:px-4 py-2 rounded-lg font-bold text-sm md:text-base ${
+                    questionTimeLeft <= 10
+                      ? "bg-red-500 text-white animate-pulse"
+                      : "bg-white text-purple-700"
+                  }`}
+                >
+                  <Clock className="w-4 h-4 md:w-5 md:h-5" />
+                  {formatTime(questionTimeLeft)}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
+
+      {hasWarnings && (
+        <div className="bg-red-50 border-b-2 border-red-300">
+          <div className="max-w-5xl mx-auto px-4 md:px-6 py-3">
+            <div className="flex gap-2">
+              <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs sm:text-sm font-bold text-red-800">
+                  Suspicious Activity Warning
+                </p>
+                <p className="text-xs text-red-700 mt-1">
+                  Activities recorded:
+                  {tabSwitchCount > 0 && ` Tab switches: ${tabSwitchCount}`}
+                  {fullscreenExitCount > 0 && `${tabSwitchCount > 0 ? ',' : ''} Fullscreen exits: ${fullscreenExitCount}`}
+                  {copyAttempts > 0 && `${tabSwitchCount > 0 || fullscreenExitCount > 0 ? ',' : ''} Copy attempts: ${copyAttempts}`}
+                  {rightClickAttempts > 0 && `${tabSwitchCount > 0 || fullscreenExitCount > 0 || copyAttempts > 0 ? ',' : ''} Right-clicks: ${rightClickAttempts}`}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <main className="max-w-5xl mx-auto p-4 md:p-6">
         {/* Quiz Info */}
@@ -972,14 +1196,6 @@ export default function TakeSyncQuiz({ user, userDoc }) {
                       </span>
                     </div>
                   </div>
-                  <div className="pt-2 border-t">
-                    <div className="flex items-start gap-2 text-gray-600">
-                      <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                      <span className="text-xs">
-                        <strong>Formula:</strong> Base (MC:10s, T/F:8s) + Length (chars÷25) + Choices (chars÷20) + Difficulty (LOTS:10s, HOTS:20s) + Computation (0-30s) + T/F Adjustment (-5s if long)
-                      </span>
-                    </div>
-                  </div>
                 </div>
               )}
             </div>
@@ -1025,33 +1241,33 @@ export default function TakeSyncQuiz({ user, userDoc }) {
 
           <div className="md:ml-16">
             {currentQuestion.type === "multiple_choice" && (
-            <div className="space-y-2 md:space-y-3">
-              {currentQuestion.choices?.map((choice, choiceIndex) => (
-                <label
-                  key={choiceIndex}
-                  className={`flex items-center gap-3 md:gap-4 p-3 md:p-5 rounded-xl border-2 cursor-pointer transition ${
-                    answers[currentQuestionIndex] === choice.text
-                      ? "border-purple-500 bg-purple-50 shadow-md"
-                      : "border-gray-200 hover:border-purple-300 bg-white hover:shadow-sm"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name={`question-${currentQuestionIndex}`}
-                    value={choice.text}
-                    checked={answers[currentQuestionIndex] === choice.text}
-                    onChange={(e) =>
-                      handleAnswerChange(currentQuestionIndex, e.target.value)
-                    }
-                    className="w-5 h-5 md:w-6 md:h-6 text-purple-600 flex-shrink-0"
-                  />
-                  <span className="flex-1 text-gray-800 text-sm md:text-lg" style={{ userSelect: 'none', WebkitUserSelect: 'none', MozUserSelect: 'none', msUserSelect: 'none' }}>
-                    {choice.text}
-                  </span>
-                </label>
-              ))}
-            </div>
-          )}
+              <div className="space-y-2 md:space-y-3">
+                {currentQuestion.choices?.map((choice, choiceIndex) => (
+                  <label
+                    key={choiceIndex}
+                    className={`flex items-center gap-3 md:gap-4 p-3 md:p-5 rounded-xl border-2 cursor-pointer transition ${
+                      answers[currentQuestionIndex] === choice.text
+                        ? "border-purple-500 bg-purple-50 shadow-md"
+                        : "border-gray-200 hover:border-purple-300 bg-white hover:shadow-sm"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name={`question-${currentQuestionIndex}`}
+                      value={choice.text}
+                      checked={answers[currentQuestionIndex] === choice.text}
+                      onChange={(e) =>
+                        handleAnswerChange(currentQuestionIndex, e.target.value)
+                      }
+                      className="w-5 h-5 md:w-6 md:h-6 text-purple-600 flex-shrink-0"
+                    />
+                    <span className="flex-1 text-gray-800 text-sm md:text-lg" style={{ userSelect: 'none', WebkitUserSelect: 'none', MozUserSelect: 'none', msUserSelect: 'none' }}>
+                      {choice.text}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
 
             {currentQuestion.type === "true_false" && (
               <div className="space-y-2 md:space-y-3">
@@ -1109,7 +1325,7 @@ export default function TakeSyncQuiz({ user, userDoc }) {
           {currentQuestionIndex === questions.length - 1 ? (
             <button
               onClick={handleSubmit}
-              disabled={submitting || Object.keys(answers).length !== questions.length}
+              disabled={submitting}
               className="flex items-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 md:px-8 py-2.5 md:py-3 rounded-lg font-bold text-sm md:text-base hover:from-green-700 hover:to-emerald-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               {submitting ? (

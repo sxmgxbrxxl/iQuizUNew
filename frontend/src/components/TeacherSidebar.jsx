@@ -27,6 +27,7 @@ export default function Sidebar({ user, userDoc }) {
   const [classesOpen, setClassesOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [classes, setClasses] = useState([]);
+  const [hoveredClass, setHoveredClass] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -302,22 +303,36 @@ export default function Sidebar({ user, userDoc }) {
                   )}
 
                   {classes.map((cls) => (
-                    <Link
+                    <div
                       key={cls.id}
-                      to={`/teacher/class/${cls.id}`}
-                      onClick={() => setIsOpen(false)}
-                      className={`flex items-center gap-3 px-3 py-2 rounded-lg text-white hover:bg-white/10 transition-all duration-200 group ${
-                        isClassActive(cls.id) ? "bg-white/15" : ""
-                      }`}
+                      className="relative"
+                      onMouseEnter={() => setHoveredClass(cls.id)}
+                      onMouseLeave={() => setHoveredClass(null)}
                     >
-                      <div className="w-2 h-2 rounded-full bg-green-400 group-hover:scale-125 transition-transform"></div>
-                      <span className="font-Outfit text-sm font-medium truncate flex-1">
-                        {cls.name}
-                      </span>
-                      <span className="text-xs text-white/60 font-Outfit">
-                        {cls.studentCount}
-                      </span>
-                    </Link>
+                      <Link
+                        to={`/teacher/class/${cls.id}`}
+                        onClick={() => setIsOpen(false)}
+                        className={`flex items-center gap-3 px-3 py-2 rounded-lg text-white hover:bg-white/10 transition-all duration-200 group ${
+                          isClassActive(cls.id) ? "bg-white/15" : ""
+                        }`}
+                      >
+                        <div className="w-2 h-2 rounded-full bg-green-400 group-hover:scale-125 transition-transform flex-shrink-0"></div>
+                        <span className="font-Outfit text-sm font-medium truncate flex-1 min-w-0">
+                          #{cls.classNo || "—"} - {cls.code || "No Code"}
+                        </span>
+                        <span className="text-xs text-white/60 font-Outfit flex-shrink-0">
+                          {cls.studentCount || 0}
+                        </span>
+                      </Link>
+
+                      {/* TOOLTIP - Full class name on hover */}
+                      {hoveredClass === cls.id && (
+                        <div className="absolute left-0 bottom-full mb-2 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 whitespace-nowrap z-50 shadow-lg pointer-events-none font-Outfit">
+                          {cls.name}
+                          <div className="absolute top-full left-4 w-2 h-2 bg-gray-900 transform rotate-45"></div>
+                        </div>
+                      )}
+                    </div>
                   ))}
                 </div>
               )}

@@ -25,6 +25,7 @@ import {
   Sparkles,
   Target,
   BookOpen,
+  AlertTriangle,
 } from "lucide-react";
 import QuizResults from "../studentSide/QuizResults";
 
@@ -45,7 +46,180 @@ export default function TakeAsyncQuiz({ user, userDoc }) {
   const [showResults, setShowResults] = useState(false);
   const [quizResults, setQuizResults] = useState(null);
 
+  // Anti-cheating state
+  const [suspiciousActivities, setSuspiciousActivities] = useState([]);
+  const [tabSwitchCount, setTabSwitchCount] = useState(0);
+  const [fullscreenExits, setFullscreenExitCount] = useState(0);
+  const [copyAttempts, setCopyAttempts] = useState(0);
+  const [rightClickAttempts, setRightClickAttempts] = useState(0);
+  const [isQuizStarted, setIsQuizStarted] = useState(false);
+  const [quizStartTime, setQuizStartTime] = useState(null);
+
   const isAssignedQuiz = !!assignmentId;
+
+  // Track tab visibility changes
+  useEffect(() => {
+    let tabSwitchOutTime = null;
+
+    const handleVisibilityChange = () => {
+      if (document.hidden && isQuizStarted) {
+        // Student switched AWAY from tab
+        tabSwitchOutTime = new Date();
+        setTabSwitchCount(prev => prev + 1);
+        const activity = {
+          type: "tab_switch",
+          timestamp: new Date().toISOString(),
+          details: "⚠️ Student switched AWAY from quiz tab",
+          switchedOutAt: tabSwitchOutTime.toISOString()
+        };
+        setSuspiciousActivities(prev => [...prev, activity]);
+      } else if (!document.hidden && tabSwitchOutTime && isQuizStarted) {
+        // Student switched BACK to tab
+        const now = new Date();
+        const durationAway = Math.floor((now - tabSwitchOutTime) / 1000); // in seconds
+        
+        const activity = {
+          type: "tab_switch",
+          timestamp: now.toISOString(),
+          details: `✅ Student returned to quiz tab (was away for ${durationAway}s)`,
+          duration: durationAway,
+          returnedAt: now.toISOString()
+        };
+        setSuspiciousActivities(prev => [...prev, activity]);
+        tabSwitchOutTime = null;
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [isQuizStarted]);
+
+  // Track fullscreen exit attempts
+  useEffect(() => {
+    let fullscreenExitTime = null;
+
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement && isQuizStarted) {
+        fullscreenExitTime = new Date();
+        setFullscreenExitCount(prev => prev + 1);
+        const activity = {
+          type: "fullscreen_exit",
+          timestamp: new Date().toISOString(),
+          details: "⚠️ Student EXITED fullscreen mode",
+          exitedAt: fullscreenExitTime.toISOString()
+        };
+        setSuspiciousActivities(prev => [...prev, activity]);
+      } else if (document.fullscreenElement && fullscreenExitTime && isQuizStarted) {
+        const now = new Date();
+        const durationOutOfFullscreen = Math.floor((now - fullscreenExitTime) / 1000);
+        
+        const activity = {
+          type: "fullscreen_exit",
+          timestamp: now.toISOString(),
+          details: `✅ Student RETURNED to fullscreen (was out for ${durationOutOfFullscreen}s)`,
+          duration: durationOutOfFullscreen,
+          returnedAt: now.toISOString()
+        };
+        setSuspiciousActivities(prev => [...prev, activity]);
+        fullscreenExitTime = null;
+      }
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, [isQuizStarted]);
+
+  // Track copy attempts
+  useEffect(() => {
+    const handleCopy = (e) => {
+      if (isQuizStarted) {
+        e.preventDefault();
+        setCopyAttempts(prev => prev + 1);
+        const activity = {
+          type: "copy_attempt",
+          timestamp: new Date().toISOString(),
+          details: "Student attempted to copy content"
+        };
+        setSuspiciousActivities(prev => [...prev, activity]);
+      }
+    };
+
+    document.addEventListener("copy", handleCopy);
+    return () => document.removeEventListener("copy", handleCopy);
+  }, [isQuizStarted]);
+
+  // Track right-click attempts
+  useEffect(() => {
+    const handleRightClick = (e) => {
+      if (isQuizStarted) {
+        e.preventDefault();
+        setRightClickAttempts(prev => prev + 1);
+        const activity = {
+          type: "right_click",
+          timestamp: new Date().toISOString(),
+          details: "Student attempted to right-click (possible inspection)"
+        };
+        setSuspiciousActivities(prev => [...prev, activity]);
+      }
+    };
+
+    document.addEventListener("contextmenu", handleRightClick);
+    return () => document.removeEventListener("contextmenu", handleRightClick);
+  }, [isQuizStarted]);
+
+  // Disable developer tools
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (!isQuizStarted) return;
+
+      // F12 - Developer Tools
+      if (e.key === "F12") {
+        e.preventDefault();
+        const activity = {
+          type: "dev_tools_attempt",
+          timestamp: new Date().toISOString(),
+          details: "Student attempted to open developer tools (F12)"
+        };
+        setSuspiciousActivities(prev => [...prev, activity]);
+      }
+
+      // Ctrl+Shift+I - Inspector
+      if (e.ctrlKey && e.shiftKey && e.key === "I") {
+        e.preventDefault();
+        const activity = {
+          type: "dev_tools_attempt",
+          timestamp: new Date().toISOString(),
+          details: "Student attempted to open developer tools (Ctrl+Shift+I)"
+        };
+        setSuspiciousActivities(prev => [...prev, activity]);
+      }
+
+      // Ctrl+Shift+C - Element Picker
+      if (e.ctrlKey && e.shiftKey && e.key === "C") {
+        e.preventDefault();
+        const activity = {
+          type: "dev_tools_attempt",
+          timestamp: new Date().toISOString(),
+          details: "Student attempted to open element picker (Ctrl+Shift+C)"
+        };
+        setSuspiciousActivities(prev => [...prev, activity]);
+      }
+
+      // Ctrl+Shift+J - Console
+      if (e.ctrlKey && e.shiftKey && e.key === "J") {
+        e.preventDefault();
+        const activity = {
+          type: "dev_tools_attempt",
+          timestamp: new Date().toISOString(),
+          details: "Student attempted to open console (Ctrl+Shift+J)"
+        };
+        setSuspiciousActivities(prev => [...prev, activity]);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isQuizStarted]);
 
   // Save progress to localStorage
   useEffect(() => {
@@ -199,15 +373,15 @@ export default function TakeAsyncQuiz({ user, userDoc }) {
         return;
       }
 
-      if (assignmentData.dueDate) {
-        const dueDate = new Date(assignmentData.dueDate);
-        const now = new Date();
-        if (now > dueDate) {
-          setError("This quiz is past its due date");
-          return;
-        }
-      }
-
+      const quizDeadline = assignmentData.dueDate || assignmentData.deadline;
+if (quizDeadline) {
+  const deadline = new Date(quizDeadline);
+  const now = new Date();
+  if (now > deadline) {
+    setError("This quiz is past its due date");
+    return;
+  }
+}
       setAssignment({ id: assignmentSnap.id, ...assignmentData });
 
       const quizRef = doc(db, "quizzes", assignmentData.quizId);
@@ -264,6 +438,9 @@ export default function TakeAsyncQuiz({ user, userDoc }) {
           startedAt: serverTimestamp(),
         });
       }
+
+      setIsQuizStarted(true);
+      setQuizStartTime(new Date());
     } catch (error) {
       console.error("Error fetching assigned quiz:", error);
       setError("Failed to load quiz. Please try again.");
@@ -398,6 +575,18 @@ export default function TakeAsyncQuiz({ user, userDoc }) {
         
         submittedAt: serverTimestamp(),
         quizMode: "asynchronous",
+
+        // Anti-cheating data
+        antiCheatData: {
+          tabSwitchCount: tabSwitchCount,
+          fullscreenExitCount: fullscreenExits,
+          copyAttempts: copyAttempts,
+          rightClickAttempts: rightClickAttempts,
+          suspiciousActivities: suspiciousActivities,
+          totalSuspiciousActivities: suspiciousActivities.length,
+          quizDuration: quizStartTime ? Math.round((new Date() - quizStartTime) / 1000) : 0,
+          flaggedForReview: suspiciousActivities.length > 0,
+        }
       });
 
       // Clear saved progress after successful submission
@@ -515,38 +704,61 @@ export default function TakeAsyncQuiz({ user, userDoc }) {
   }
 
   const currentQuestion = questions[currentQuestionIndex];
+  const hasWarnings = suspiciousActivities.length > 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 font-Outfit">
       <div className="bg-components shadow-md sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-between gap-2">
-            <button
-              onClick={() => {
-                navigate("/student");
-              }}
-              className="flex items-center gap-1 sm:gap-2 text-subtext hover:text-subsubtext transition text-sm sm:text-base"
-            >
-              <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="hidden sm:inline">Back to Dashboard</span>
-              <span className="sm:hidden">Back</span>
-            </button>
 
-            {timeLeft !== null && (
-              <div
-                className={`flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg font-bold text-sm sm:text-base ${
-                  timeLeft <= 300
-                    ? "bg-red-100 text-red-700"
-                    : "bg-blue-100 text-blue-700"
-                }`}
-              >
-                <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
-                {formatTime(timeLeft)}
-              </div>
-            )}
+            <div className="flex items-center gap-2 sm:gap-4">
+              {hasWarnings && (
+                <div className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-2 bg-red-100 text-red-700 rounded-lg text-xs sm:text-sm font-semibold">
+                  <AlertTriangle className="w-4 h-4" />
+                  <span className="hidden sm:inline">Suspicious Activity Detected</span>
+                  <span className="sm:hidden">Alert</span>
+                </div>
+              )}
+
+              {timeLeft !== null && (
+                <div
+                  className={`flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg font-bold text-sm sm:text-base ${
+                    timeLeft <= 300
+                      ? "bg-red-100 text-red-700"
+                      : "bg-blue-100 text-blue-700"
+                  }`}
+                >
+                  <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
+                  {formatTime(timeLeft)}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
+
+      {hasWarnings && (
+        <div className="bg-red-50 border-b-2 border-red-300">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
+            <div className="flex gap-2 sm:gap-3">
+              <AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 text-red-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs sm:text-sm font-bold text-red-800">
+                  Suspicious Activity Warning
+                </p>
+                <p className="text-xs sm:text-sm text-red-700 mt-1">
+                  The following activities have been detected and recorded:
+                  {tabSwitchCount > 0 && ` Tab switches: ${tabSwitchCount}`}
+                  {fullscreenExits > 0 && `${tabSwitchCount > 0 ? ',' : ''} Fullscreen exits: ${fullscreenExits}`}
+                  {copyAttempts > 0 && `${tabSwitchCount > 0 || fullscreenExits > 0 ? ',' : ''} Copy attempts: ${copyAttempts}`}
+                  {rightClickAttempts > 0 && `${tabSwitchCount > 0 || fullscreenExits > 0 || copyAttempts > 0 ? ',' : ''} Right-click attempts: ${rightClickAttempts}`}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <main className="max-w-5xl mx-auto p-4 sm:p-6">
         <div className="bg-components rounded-2xl shadow-md p-4 sm:p-6 mb-4 sm:mb-6">
@@ -618,33 +830,33 @@ export default function TakeAsyncQuiz({ user, userDoc }) {
 
           <div className="sm:ml-16">
             {currentQuestion.type === "multiple_choice" && (
-            <div className="space-y-2 sm:space-y-3">
-              {currentQuestion.choices?.map((choice, choiceIndex) => (
-                <label
-                  key={choiceIndex}
-                  className={`flex items-center gap-3 sm:gap-4 p-3 sm:p-5 rounded-xl border-2 cursor-pointer transition ${
-                    answers[currentQuestionIndex] === choice.text
-                      ? "border-blue-500 bg-blue-50 shadow-md"
-                      : "border-gray-200 hover:border-blue-300 bg-white hover:shadow-sm"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name={`question-${currentQuestionIndex}`}
-                    value={choice.text}
-                    checked={answers[currentQuestionIndex] === choice.text}
-                    onChange={(e) =>
-                      handleAnswerChange(currentQuestionIndex, e.target.value)
-                    }
-                    className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600"
-                  />
-                  <span className="flex-1 text-gray-800 text-sm sm:text-lg" style={{ userSelect: 'none', WebkitUserSelect: 'none', MozUserSelect: 'none', msUserSelect: 'none' }}>
-                    {choice.text}
-                  </span>
-                </label>
-              ))}
-            </div>
-          )}
+              <div className="space-y-2 sm:space-y-3">
+                {currentQuestion.choices?.map((choice, choiceIndex) => (
+                  <label
+                    key={choiceIndex}
+                    className={`flex items-center gap-3 sm:gap-4 p-3 sm:p-5 rounded-xl border-2 cursor-pointer transition ${
+                      answers[currentQuestionIndex] === choice.text
+                        ? "border-blue-500 bg-blue-50 shadow-md"
+                        : "border-gray-200 hover:border-blue-300 bg-white hover:shadow-sm"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name={`question-${currentQuestionIndex}`}
+                      value={choice.text}
+                      checked={answers[currentQuestionIndex] === choice.text}
+                      onChange={(e) =>
+                        handleAnswerChange(currentQuestionIndex, e.target.value)
+                      }
+                      className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600"
+                    />
+                    <span className="flex-1 text-gray-800 text-sm sm:text-lg" style={{ userSelect: 'none', WebkitUserSelect: 'none', MozUserSelect: 'none', msUserSelect: 'none' }}>
+                      {choice.text}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
 
             {currentQuestion.type === "true_false" && (
               <div className="space-y-2 sm:space-y-3">
