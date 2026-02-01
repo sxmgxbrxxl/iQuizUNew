@@ -23,6 +23,7 @@ import {
 export default function Sidebar({ user, userDoc }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [classesOpen, setClassesOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
@@ -143,6 +144,50 @@ export default function Sidebar({ user, userDoc }) {
 
   return (
     <>
+      {/* Top Bar */}
+            <div className="fixed top-0 left-0 right-0 h-16 bg-gradient-to-r from-blue-600 via-blue-700 to-blue-800 shadow-lg z-50 flex items-center justify-between px-6">
+              {/* Left Section: Logo and Hamburger */}
+              <div className="flex items-center gap-4">
+                {/* Hamburger Menu - Desktop: collapse sidebar, Mobile: open overlay */}
+                <button
+                  onClick={() => {
+                    if (window.innerWidth < 1024) {
+                      setIsMobileOpen(!isMobileOpen);
+                    } else {
+                      setIsCollapsed(!isCollapsed);
+                    }
+                  }}
+                  className="text-white hover:bg-white/10 p-2 rounded-lg transition-all duration-200 hover:scale-105"
+                  aria-label="Toggle sidebar"
+                >
+                  <Menu size={24} />
+                </button>
+      
+                {/* Logo and Brand */}
+                <div className="flex items-center gap-3">
+                  <img src={LOGO} alt="Logo" className="w-8 h-8" />
+                  <div className="flex flex-col text-white">
+                    <h1 className="text-lg font-bold font-Outfit leading-tight">iQuizU</h1>
+                  </div>
+                </div>
+              </div>
+      
+              {/* Right Section: Profile */}
+              <div className="flex items-center gap-2 sm:gap-4">
+                {/* User Profile */}
+                <button
+                  onClick={() => navigate('/teacher/profile')}
+                  className="flex items-center gap-2 hover:bg-white/10 p-2 pr-3 rounded-lg transition-all duration-200 hover:scale-105"
+                >
+                  <div className="w-8 h-8 bg-gradient-to-br from-green-300 to-green-600 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-lg ring-2 ring-white/20">
+                    {userInitial}
+                  </div>
+                  <span className="text-white font-medium text-sm hidden md:block">{userName}</span>
+                </button>
+              </div>
+            </div>
+
+      {/* Sidebar */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="fixed top-6 right-6 z-50 bg-components text-black p-3 rounded-full shadow-md hover:bg-gray-50 transition-all lg:hidden border border-gray-100 hover:scale-105"
@@ -152,54 +197,11 @@ export default function Sidebar({ user, userDoc }) {
       </button>
 
       <div
-        className={`fixed top-0 left-0 h-screen bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 shadow-2xl transition-all duration-300 ease-in-out z-40
-        ${isOpen ? "translate-x-0" : "-translate-x-full"} 
-        lg:translate-x-0
-        ${shouldExpand ? "lg:w-72" : "lg:w-20"}
+        className={`fixed top-16 left-0 h-[calc(100vh-64px)] bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 shadow-2xl transition-all duration-300 ease-in-out z-40
+        ${isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
+        ${isCollapsed ? "lg:w-20" : "lg:w-72"}
         w-72`}
       >
-        <div className="relative bg-gradient-to-r from-green-800/50 to-blue-800/50 backdrop-blur-sm font-Outfit cursor-default">
-          <div
-            className={`flex items-center ${
-              shouldExpand ? "px-10 py-6 gap-3" : "justify-center py-6 ml-4"
-            } transition-all duration-300`}
-          >
-            <div className="flex items-center gap-4 transform hover:scale-105 transition-transform duration-300">
-              <img
-                src={LOGO}
-                alt="Logo"
-                className={`transition-all duration-300 ${
-                  shouldExpand ? "w-12 h-12" : "w-10 h-10"
-                }`}
-              />
-              
-              <div
-                className={`flex flex-col text-white overflow-hidden transition-all duration-300 ${
-                  shouldExpand ? "opacity-100 max-w-xs" : "opacity-0 max-w-0"
-                }`}
-              >
-                <h1 className="text-2xl font-bold leading-tight">iQuizU</h1>
-                <p className="text-sm -mt-1">Teacher</p>
-              </div>
-            </div>
-          </div>  
-
-          <button
-            onClick={() => {
-              console.log("🔘 Toggle clicked! Current:", isCollapsed, "→ New:", !isCollapsed);
-              setIsCollapsed(!isCollapsed);
-            }}
-            className="hidden lg:flex absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-white rounded-full items-center justify-center shadow-md hover:bg-green-50 transition-all hover:scale-110 border-2 border-blue-600"
-            aria-label="Toggle sidebar"
-          >
-            {isCollapsed ? (
-              <ChevronRight size={14} className="text-blue-600" />
-            ) : (
-              <ChevronLeft size={14} className="text-blue-600" />
-            )}
-          </button>
-        </div>
-
         <nav
           style={{
           scrollbarWidth: 'thin',
@@ -473,30 +475,6 @@ export default function Sidebar({ user, userDoc }) {
             </span>
           </button>
         </nav>
-
-        <div
-          onClick={() => {
-            setIsOpen(false);
-            navigate('/teacher/profile');
-          }}
-          className={`flex w-full absolute bottom-0 font-Outfit items-center bg-gradient-to-r from-green-900/50 to-blue-900/50 backdrop-blur-sm border-t border-white/10 transition-all duration-300 cursor-pointer ${
-            shouldExpand ? "px-10 py-6 gap-3" : "items-center justify-center py-6 pl-4"
-          }`}
-        >
-          <div className="flex items-center gap-4 transform hover:scale-105 transition-transform duration-300">
-            <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-white font-bold shadow-lg ring-2 ring-white/20 flex-shrink-0">
-              {userInitial}
-            </div>
-            <div
-              className={`flex flex-col text-white overflow-hidden transition-all duration-300 ${
-                shouldExpand ? "opacity-100 max-w-xs" : "opacity-0 max-w-0"
-              }`}
-            >
-              <p className="text-white font-semibold text-sm">{userName}</p>
-              <p className="text-blue-200 font-light text-xs">{userEmail}</p>
-            </div>
-          </div>
-        </div>
       </div>
 
       {isOpen && (

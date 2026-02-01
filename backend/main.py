@@ -8,10 +8,16 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS Configuration
+# CORS Configuration - UPDATED FOR PRODUCTION
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173", "http://localhost:5174"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:5173", 
+        "http://localhost:5174",
+        "https://iquizu-29da7.firebaseapp.com",  # ADD THIS
+        "https://iquizu-29da7.web.app"           # ADD THIS (alternative Firebase domain)
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

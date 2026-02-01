@@ -15,6 +15,7 @@ __pycache__/
 # Uploads
 uploads/*.pdf
 uploads/*
+!uploads/.gitkeep  # ✅ ADD THIS LINE - keeps .gitkeep file but ignores everything else
 
 # IDE
 .vscode/
