@@ -2159,7 +2159,7 @@ const getClassificationBadge = (cls, conf, cognitiveLevel, difficulty) => {
             </div>
           </div>
         </div>,
-        document.bodyz
+        document.body
       )}
     </div>
   );
