@@ -16,6 +16,8 @@ import {
   Eye,
   Copy,
   Snowflake,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import {
   collection,
@@ -32,13 +34,15 @@ import {
 import { db, auth } from "../../firebase/firebaseConfig";
 
 
+const ITEMS_PER_PAGE = 6;
+
 export default function ManageQuizzes() {
   const navigate = useNavigate();
   const [publishedQuizzes, setPublishedQuizzes] = useState([]);
   const [loadingQuizzes, setLoadingQuizzes] = useState(true);
 
   const [showPdfModal, setShowPdfModal] = useState(false);
-  const [showManualModal, setShowManualModal] = useState(false); 
+  const [showManualModal, setShowManualModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [quizTitle, setQuizTitle] = useState("");
@@ -53,9 +57,11 @@ export default function ManageQuizzes() {
   const [editForm, setEditForm] = useState({});
   const [publishing, setPublishing] = useState(false);
   const [copiedCodeId, setCopiedCodeId] = useState(null);
+  const [selectedSyncQuiz, setSelectedSyncQuiz] = useState(null);
+  const [selectedAsyncQuiz, setSelectedAsyncQuiz] = useState(null);
   const [deletingAssignment, setDeletingAssignment] = useState(null);
   const [mounted, setMounted] = useState(false);
-  
+
   // Classification Filter State
   const [classificationFilter, setClassificationFilter] = useState("ALL");
 
@@ -72,9 +78,16 @@ export default function ManageQuizzes() {
   const [manualQuestions, setManualQuestions] = useState([]);
   const [currentQuestionType, setCurrentQuestionType] = useState("multiple_choice");
 
+  // Pagination State
+  const [publishedPage, setPublishedPage] = useState(1);
+  const [syncPage, setSyncPage] = useState(1);
+  const [asyncPage, setAsyncPage] = useState(1);
+
+
+
   useEffect(() => {
-  setMounted(true);
-}, []);
+    setMounted(true);
+  }, []);
 
   // -----------------------------------------------------------------
   // FETCH QUIZZES
@@ -129,45 +142,45 @@ export default function ManageQuizzes() {
   // -----------------------------------------------------------------
   const [deletingQuiz, setDeletingQuiz] = useState(null);
 
-const handleDeleteQuiz = async (quizId, quizTitle) => {
-  const confirmMsg = `Are you sure you want to archive "${quizTitle}"?\n\nThis will move the quiz to your archives.\n\nNote: Assigned quizzes can still be accessed by students.`;
-  
-  if (!window.confirm(confirmMsg)) return;
+  const handleDeleteQuiz = async (quizId, quizTitle) => {
+    const confirmMsg = `Are you sure you want to archive "${quizTitle}"?\n\nThis will move the quiz to your archives.\n\nNote: Assigned quizzes can still be accessed by students.`;
 
-  setDeletingQuiz(quizId);
-  
-  try {
-    // Get quiz data before archiving
-    const quizDoc = await getDoc(doc(db, "quizzes", quizId));
-    
-    if (quizDoc.exists()) {
-      const quizData = quizDoc.data();
-      
-      // Save to archivedQuizzes with metadata
-      const archivedData = {
-        ...quizData,
-        originalQuizId: quizId,
-        archivedAt: new Date(),
-        archivedBy: auth.currentUser.uid,
-        status: "archived"
-      };
+    if (!window.confirm(confirmMsg)) return;
 
-      await setDoc(doc(db, "archivedQuizzes", quizId), archivedData);
-      console.log(`Quiz archived: ${quizId}`);
+    setDeletingQuiz(quizId);
+
+    try {
+      // Get quiz data before archiving
+      const quizDoc = await getDoc(doc(db, "quizzes", quizId));
+
+      if (quizDoc.exists()) {
+        const quizData = quizDoc.data();
+
+        // Save to archivedQuizzes with metadata
+        const archivedData = {
+          ...quizData,
+          originalQuizId: quizId,
+          archivedAt: new Date(),
+          archivedBy: auth.currentUser.uid,
+          status: "archived"
+        };
+
+        await setDoc(doc(db, "archivedQuizzes", quizId), archivedData);
+        console.log(`Quiz archived: ${quizId}`);
+      }
+
+      // Delete from active quizzes
+      await deleteDoc(doc(db, "quizzes", quizId));
+
+      await fetchQuizzes();
+      alert("✅ Quiz archived successfully!");
+    } catch (e) {
+      console.error("Error archiving quiz:", e);
+      alert("❌ Error archiving quiz. Please try again.");
+    } finally {
+      setDeletingQuiz(null);
     }
-
-    // Delete from active quizzes
-    await deleteDoc(doc(db, "quizzes", quizId));
-    
-    await fetchQuizzes();
-    alert("✅ Quiz archived successfully!");
-  } catch (e) {
-    console.error("Error archiving quiz:", e);
-    alert("❌ Error archiving quiz. Please try again.");
-  } finally {
-    setDeletingQuiz(null);
-  }
-};
+  };
 
   // -----------------------------------------------------------------
   // FETCH ASSIGNED QUIZZES (ASYNCHRONOUS ONLY)
@@ -318,7 +331,7 @@ const handleDeleteQuiz = async (quizId, quizTitle) => {
   // -----------------------------------------------------------------
   const handleDeleteAssignment = async (assignment, isSync = false) => {
     const confirmMsg = `Are you sure you want to delete this assignment?\n\nQuiz: ${assignment.title}\nClass: ${assignment.className}\n\nThis will remove the quiz from all ${assignment.studentCount} students and delete all related data. This action cannot be undone.`;
-    
+
     if (!window.confirm(confirmMsg)) return;
 
     setDeletingAssignment(`${assignment.quizId}-${assignment.classId}`);
@@ -370,24 +383,24 @@ const handleDeleteQuiz = async (quizId, quizTitle) => {
   };
 
   const addManualQuestion = (type) => {
-  const newQuestion = {
-    type: type, // Use the passed type directly
-    question: "",
-    points: 1,
-    correct_answer: type === "true_false" ? "True" : "",
-    choices: type === "multiple_choice" 
-      ? [
+    const newQuestion = {
+      type: type, // Use the passed type directly
+      question: "",
+      points: 1,
+      correct_answer: type === "true_false" ? "True" : "",
+      choices: type === "multiple_choice"
+        ? [
           { text: "", is_correct: false },
           { text: "", is_correct: false },
           { text: "", is_correct: false },
           { text: "", is_correct: false },
         ]
-      : null,
-    bloom_classification: "LOTS",
-    classification_confidence: 0,
+        : null,
+      bloom_classification: "LOTS",
+      classification_confidence: 0,
+    };
+    setManualQuestions([...manualQuestions, newQuestion]);
   };
-  setManualQuestions([...manualQuestions, newQuestion]);
-};
 
   const updateManualQuestion = (index, field, value) => {
     const updated = [...manualQuestions];
@@ -428,7 +441,7 @@ const handleDeleteQuiz = async (quizId, quizTitle) => {
     // Validate all questions
     for (let i = 0; i < manualQuestions.length; i++) {
       const q = manualQuestions[i];
-      
+
       if (!q.question.trim()) {
         alert(`Question ${i + 1} is empty`);
         return;
@@ -492,7 +505,7 @@ const handleDeleteQuiz = async (quizId, quizTitle) => {
 
     try {
       const res = await fetch(
-        "http://localhost:8000/api/quiz/generate-from-pdf",
+        "https://iquizu-backend-production.up.railway.app/api/quiz/generate-from-pdf",
         {
           method: "POST",
           body: fd,
@@ -517,7 +530,7 @@ const handleDeleteQuiz = async (quizId, quizTitle) => {
     setSelectedFile(null);
     setQuizTitle("");
   };
-  
+
   const closePreviewModal = () => {
     setShowPreviewModal(false);
     setIsEditingTitle(false);
@@ -551,8 +564,8 @@ const handleDeleteQuiz = async (quizId, quizTitle) => {
       correct_answer: q.correct_answer || "",
       choices: q.choices ? [...q.choices] : null,
       bloom_classification: q.bloom_classification || "LOTS",
-      cognitive_level: q.cognitive_level || "remembering", 
-     difficulty: q.difficulty || "easy", 
+      cognitive_level: q.cognitive_level || "remembering",
+      difficulty: q.difficulty || "easy",
     });
   };
 
@@ -584,45 +597,45 @@ const handleDeleteQuiz = async (quizId, quizTitle) => {
   };
 
   const handleAddQuestion = (type) => {
-  const newQ = {
-    type,
-    question: "",
-    points: 1,
-    correct_answer: type === "true_false" ? "True" : "",
-    choices:
-      type === "multiple_choice"
-        ? [
+    const newQ = {
+      type,
+      question: "",
+      points: 1,
+      correct_answer: type === "true_false" ? "True" : "",
+      choices:
+        type === "multiple_choice"
+          ? [
             { text: "", is_correct: false },
             { text: "", is_correct: false },
             { text: "", is_correct: false },
             { text: "", is_correct: false },
           ]
-        : null,
-    bloom_classification: "LOTS",
-    classification_confidence: 0,
+          : null,
+      bloom_classification: "LOTS",
+      classification_confidence: 0,
+    };
+    setGeneratedQuiz({
+      ...generatedQuiz,
+      questions: [...generatedQuiz.questions, newQ],
+    });
+    setEditingQuestion(generatedQuiz.questions.length);
+    setEditForm({
+      question: "",
+      type,
+      points: 1,
+      correct_answer: type === "true_false" ? "True" : "",
+      choices:
+        type === "multiple_choice"
+          ? [
+            { text: "", is_correct: false },
+            { text: "", is_correct: false },
+            { text: "", is_correct: false },
+            { text: "", is_correct: false },
+          ]
+          : null,
+      bloom_classification: "LOTS",
+    });
   };
-  setGeneratedQuiz({
-    ...generatedQuiz,
-    questions: [...generatedQuiz.questions, newQ],
-  });
-  setEditingQuestion(generatedQuiz.questions.length);
-  setEditForm({
-    question: "",
-    type,
-    points: 1,
-    correct_answer: type === "true_false" ? "True" : "",
-    choices:
-      type === "multiple_choice"
-        ? [
-            { text: "", is_correct: false },
-            { text: "", is_correct: false },
-            { text: "", is_correct: false },
-            { text: "", is_correct: false },
-          ]
-        : null,
-    bloom_classification: "LOTS",
-  });
-};
 
   const handleDeleteQuestion = (idx) => {
     if (window.confirm("Delete this question?")) {
@@ -635,10 +648,10 @@ const handleDeleteQuiz = async (quizId, quizTitle) => {
   };
 
   const groupQuestionsByType = (questions) => {
-    const filteredQuestions = classificationFilter === "ALL" 
-      ? questions 
+    const filteredQuestions = classificationFilter === "ALL"
+      ? questions
       : questions.filter(q => q.bloom_classification === classificationFilter);
-    
+
     const g = { multiple_choice: [], true_false: [], identification: [] };
     filteredQuestions.forEach((q, i) => {
       const originalIndex = questions.indexOf(q);
@@ -715,62 +728,130 @@ const handleDeleteQuiz = async (quizId, quizTitle) => {
   // -----------------------------------------------------------------
   // BADGE
   // -----------------------------------------------------------------
-// Around line 900+ - UPDATE THIS FUNCTION
-const getClassificationBadge = (cls, conf, cognitiveLevel, difficulty) => {
-  const isHOTS = cls === "HOTS";
-  const bg = isHOTS ? "bg-purple-100" : "bg-blue-100";
-  const txt = isHOTS ? "text-purple-700" : "text-blue-700";
-  const brd = isHOTS ? "border-purple-300" : "border-blue-300";
+  // Around line 900+ - UPDATE THIS FUNCTION
+  const getClassificationBadge = (cls, conf, cognitiveLevel, difficulty) => {
+    const isHOTS = cls === "HOTS";
+    const bg = isHOTS ? "bg-purple-100" : "bg-blue-100";
+    const txt = isHOTS ? "text-purple-700" : "text-blue-700";
+    const brd = isHOTS ? "border-purple-300" : "border-blue-300";
 
-  // Difficulty colors
-  const difficultyColors = {
-    easy: "bg-green-100 text-green-700 border-green-300",
-    average: "bg-yellow-100 text-yellow-700 border-yellow-300",
-    difficult: "bg-red-100 text-red-700 border-red-300"
+    // Difficulty colors
+    const difficultyColors = {
+      easy: "bg-green-100 text-green-700 border-green-300",
+      average: "bg-yellow-100 text-yellow-700 border-yellow-300",
+      difficult: "bg-red-100 text-red-700 border-red-300"
+    };
+
+    // Cognitive level colors
+    const cognitiveColors = {
+      remembering: "bg-blue-50 text-blue-600",
+      understanding: "bg-cyan-50 text-cyan-600",
+      application: "bg-teal-50 text-teal-600",
+      analysis: "bg-purple-50 text-purple-600",
+      evaluation: "bg-pink-50 text-pink-600",
+      creating: "bg-red-50 text-red-600"
+    };
+
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        {/* LOTS/HOTS Badge */}
+        <span
+          className={`px-3 py-1 rounded-full text-xs font-bold border-2 ${bg} ${txt} ${brd}`}
+        >
+          {cls}
+        </span>
+
+        {/* Cognitive Level Badge */}
+        {cognitiveLevel && (
+          <span className={`px-3 py-1 rounded-full text-xs font-bold ${cognitiveColors[cognitiveLevel] || 'bg-gray-100 text-gray-700'}`}>
+            {cognitiveLevel.charAt(0).toUpperCase() + cognitiveLevel.slice(1)}
+          </span>
+        )}
+
+        {/* Difficulty Badge */}
+        {difficulty && (
+          <span className={`px-3 py-1 rounded-full text-xs font-bold border-2 ${difficultyColors[difficulty] || 'bg-gray-100 text-gray-700 border-gray-300'}`}>
+            {difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}
+          </span>
+        )}
+
+        {/* Confidence Score */}
+        {conf && (
+          <span className="text-xs text-gray-500">
+            {(conf * 100).toFixed(1)}%
+          </span>
+        )}
+      </div>
+    );
   };
 
-  // Cognitive level colors
-  const cognitiveColors = {
-    remembering: "bg-blue-50 text-blue-600",
-    understanding: "bg-cyan-50 text-cyan-600",
-    application: "bg-teal-50 text-teal-600",
-    analysis: "bg-purple-50 text-purple-600",
-    evaluation: "bg-pink-50 text-pink-600",
-    creating: "bg-red-50 text-red-600"
-  };
+  // -----------------------------------------------------------------
+  // PAGINATION COMPONENT
+  // -----------------------------------------------------------------
+  const Pagination = ({ currentPage, totalItems, onPageChange, accentColor = "blue" }) => {
+    const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+    if (totalPages <= 1) return null;
 
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      {/* LOTS/HOTS Badge */}
-      <span
-        className={`px-3 py-1 rounded-full text-xs font-bold border-2 ${bg} ${txt} ${brd}`}
-      >
-        {cls}
-      </span>
-      
-      {/* Cognitive Level Badge */}
-      {cognitiveLevel && (
-        <span className={`px-3 py-1 rounded-full text-xs font-bold ${cognitiveColors[cognitiveLevel] || 'bg-gray-100 text-gray-700'}`}>
-          {cognitiveLevel.charAt(0).toUpperCase() + cognitiveLevel.slice(1)}
-        </span>
-      )}
-      
-      {/* Difficulty Badge */}
-      {difficulty && (
-        <span className={`px-3 py-1 rounded-full text-xs font-bold border-2 ${difficultyColors[difficulty] || 'bg-gray-100 text-gray-700 border-gray-300'}`}>
-          {difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}
-        </span>
-      )}
-      
-      {/* Confidence Score */}
-      {conf && (
-        <span className="text-xs text-gray-500">
-          {(conf * 100).toFixed(1)}%
-        </span>
-      )}
-    </div>
-  );
-};
+    const getPageNumbers = () => {
+      const pages = [];
+      const maxVisible = 5;
+      let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+      let end = Math.min(totalPages, start + maxVisible - 1);
+      if (end - start + 1 < maxVisible) {
+        start = Math.max(1, end - maxVisible + 1);
+      }
+      if (start > 1) {
+        pages.push(1);
+        if (start > 2) pages.push("...");
+      }
+      for (let i = start; i <= end; i++) pages.push(i);
+      if (end < totalPages) {
+        if (end < totalPages - 1) pages.push("...");
+        pages.push(totalPages);
+      }
+      return pages;
+    };
+
+    const colorMap = {
+      blue: { active: "bg-blue-600 text-white", hover: "hover:bg-blue-50 text-gray-600", arrow: "text-gray-500 hover:bg-blue-50", disabled: "text-gray-300" },
+      yellow: { active: "bg-amber-500 text-white", hover: "hover:bg-amber-50 text-gray-600", arrow: "text-gray-500 hover:bg-amber-50", disabled: "text-gray-300" },
+      purple: { active: "bg-violet-500 text-white", hover: "hover:bg-violet-50 text-gray-600", arrow: "text-gray-500 hover:bg-violet-50", disabled: "text-gray-300" },
+    };
+    const c = colorMap[accentColor] || colorMap.blue;
+
+    return (
+      <div className="flex items-center justify-center gap-1 mt-6">
+        <button
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className={`p-2 rounded-lg transition ${currentPage === 1 ? c.disabled + " cursor-not-allowed" : c.arrow}`}
+        >
+          <ChevronLeft className="w-5 h-5" />
+        </button>
+        {getPageNumbers().map((page, i) =>
+          page === "..." ? (
+            <span key={`dot-${i}`} className="px-2 text-gray-400 text-sm">...</span>
+          ) : (
+            <button
+              key={page}
+              onClick={() => onPageChange(page)}
+              className={`w-9 h-9 rounded-lg text-sm font-semibold transition ${currentPage === page ? c.active : c.hover
+                }`}
+            >
+              {page}
+            </button>
+          )
+        )}
+        <button
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className={`p-2 rounded-lg transition ${currentPage === totalPages ? c.disabled + " cursor-not-allowed" : c.arrow}`}
+        >
+          <ChevronRight className="w-5 h-5" />
+        </button>
+      </div>
+    );
+  };
 
   // -----------------------------------------------------------------
   // RENDER
@@ -791,10 +872,10 @@ const getClassificationBadge = (cls, conf, cognitiveLevel, difficulty) => {
       </div>
 
       {/* Create New Quiz */}
-      <div className="bg-blue-50 p-8 rounded-3xl border-2 border-blue-200 mb-8 animate-slideIn">
+      <div className="bg-white p-8 rounded-2xl border border-gray-200 shadow-sm mb-8 animate-slideIn">
         <h3 className="text-xl text-title font-semibold mb-3">
           Create New Quiz
-        </h3> 
+        </h3>
         <div className="flex flex-wrap gap-4">
           <button
             onClick={() => setShowPdfModal(true)}
@@ -802,17 +883,17 @@ const getClassificationBadge = (cls, conf, cognitiveLevel, difficulty) => {
           >
             <FileUp className="w-5 h-5" /> Upload PDF (AI Generate)
           </button>
-          <button 
+          <button
             onClick={openManualModal}
             className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition"
-          > 
+          >
             <PlusCircle className="w-5 h-5" /> Manual Quiz Creation
           </button>
         </div>
       </div>
 
       {/* Published Quizzes */}
-      <div className="border-2 border-gray-300 border-dashed rounded-3xl p-8 mb-8">
+      <div className="bg-white rounded-2xl border border-gray-200 border-l-4 border-l-blue-400 shadow-sm p-6 mb-8">
         <h3 className="text-xl text-title font-semibold mb-4">
           Your Published Quizzes
         </h3>
@@ -827,63 +908,67 @@ const getClassificationBadge = (cls, conf, cognitiveLevel, difficulty) => {
             <p className="text-gray-500 text-lg">No published quizzes yet</p>
           </div>
         ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {publishedQuizzes.map((q) => (
-              <div
-                key={q.id}
-                className="border rounded-2xl p-5 shadow-sm hover:shadow-md transition bg-blue-50"
-              >
-                <div className="relative flex flex-row">
-                  <div className="flex flex-col">
-                    <h4 className="text-lg font-bold text-title">{q.title}</h4>
-                    <p className="text-gray-500 text-sm">
-                      Questions: {q.questionCount}
-                    </p>
-                    <p className="text-gray-500 text-sm">
-                      Total Points: {q.totalPoints}
-                    </p>
-                  </div>
-                  <button 
-                    onClick={() => handleDeleteQuiz(q.id, q.title)}
-                    disabled={deletingQuiz === q.id}
-                    className={`absolute top-2 right-1 text-red-600 transition-all active:scale-95 hover:scale-105 duration-200 hover:bg-red-50 p-1 rounded ${
-                      deletingQuiz === q.id ? 'opacity-50 cursor-not-allowed' : ''
-                    }`}
-                    title="Delete quiz">
-                    {deletingQuiz === q.id ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Trash2 className="w-4 h-4" />
-                    )}
-                  </button>
-                </div>
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-5">
+              {publishedQuizzes
+                .slice((publishedPage - 1) * ITEMS_PER_PAGE, publishedPage * ITEMS_PER_PAGE)
+                .map((q) => (
+                  <div
+                    key={q.id}
+                    className="border border-gray-200 rounded-xl p-3 md:p-5 shadow-sm hover:shadow-md transition bg-blue-50/40 hover:bg-blue-50"
+                  >
+                    <div className="relative flex flex-row">
+                      <div className="flex flex-col w-full">
+                        <h4 className="text-sm md:text-lg font-bold text-title pr-6 break-words leading-tight mb-1">{q.title}</h4>
+                        <p className="text-gray-500 text-xs md:text-sm">
+                          {q.questionCount} Qs
+                        </p>
+                        <p className="text-gray-500 text-xs md:text-sm">
+                          {q.totalPoints} Pts
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleDeleteQuiz(q.id, q.title)}
+                        disabled={deletingQuiz === q.id}
+                        className={`absolute -top-1 -right-1 md:top-2 md:right-1 text-red-600 transition-all active:scale-95 hover:scale-105 duration-200 hover:bg-red-50 p-1.5 rounded ${deletingQuiz === q.id ? 'opacity-50 cursor-not-allowed' : ''
+                          }`}
+                        title="Delete quiz">
+                        {deletingQuiz === q.id ? (
+                          <Loader2 className="w-3 h-3 md:w-4 md:h-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-3 h-3 md:w-4 md:h-4" />
+                        )}
+                      </button>
+                    </div>
 
-                <div className="flex justify-between items-center gap-2 mt-4">
-                  <button
-                    onClick={() => navigate(`/teacher/edit-quiz/${q.id}`)}
-                    className="text-blue-600 rounded-xl bg-blue-100 px-3 py-2 font-semibold flex items-center gap-1 transform-all active:scale-95 hover:scale-105 duration-200"
-                  >
-                    <Pen className="w-4 h-4" /> <span className="hidden md:block">Edit</span>
-                  </button>
-                  <button
-                    onClick={() => navigate(`/teacher/assign-quiz/${q.id}`)}
-                    className="text-purple-600 bg-purple-100 px-3 py-2 rounded-xl font-semibold flex items-center gap-1 transform-all active:scale-95 hover:scale-105 duration-200"
-                  >
-                    <Users className="w-4 h-4" /> <span className="hidden md:block">Assign</span>
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+                    <div className="flex justify-between items-center gap-2 mt-3 md:mt-4">
+                      <button
+                        onClick={() => navigate(`/teacher/edit-quiz/${q.id}`)}
+                        className="flex-1 justify-center text-blue-600 rounded-lg bg-blue-50 border border-blue-200 px-2 py-1.5 md:px-3 md:py-2 font-semibold flex items-center gap-1 transition hover:bg-blue-100 text-xs md:text-base"
+                      >
+                        <Pen className="w-3 h-3 md:w-4 md:h-4" /> <span className="hidden md:block">Edit</span>
+                      </button>
+                      <button
+                        onClick={() => navigate(`/teacher/assign-quiz/${q.id}`)}
+                        className="flex-1 justify-center text-gray-700 bg-gray-50 border border-gray-200 px-2 py-1.5 md:px-3 md:py-2 rounded-lg font-semibold flex items-center gap-1 transition hover:bg-gray-100 text-xs md:text-base"
+                      >
+                        <Users className="w-3 h-3 md:w-4 md:h-4" /> <span className="hidden md:block">Assign</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+            </div>
+            <Pagination currentPage={publishedPage} totalItems={publishedQuizzes.length} onPageChange={setPublishedPage} accentColor="blue" />
+          </>
         )}
       </div>
 
       {/* Synchronous Quizzes Section */}
-      <div className="mb-8 bg-yellow-50 rounded-3xl border-2 border-yellow-200 p-6">
+      <div className="mb-8 bg-white rounded-2xl border border-gray-200 border-l-4 border-l-amber-400 shadow-sm p-6">
         <h3 className="text-xl text-title font-semibold mb-4 flex items-center gap-2">
-          <Zap className="w-6 h-6 text-yellow-600" /> Synchronous Quizzes
+          <Zap className="w-5 h-5 text-amber-500" /> Synchronous Quizzes
           {synchronousQuizzes.length > 0 && (
-            <span className="bg-yellow-400 text-yellow-900 px-3 py-1 rounded-full text-sm font-bold ">
+            <span className="bg-amber-50 text-amber-700 px-2.5 py-0.5 rounded-full text-sm font-semibold">
               {synchronousQuizzes.length}
             </span>
           )}
@@ -895,163 +980,182 @@ const getClassificationBadge = (cls, conf, cognitiveLevel, difficulty) => {
             <span className="ml-3 text-gray-600">Loading…</span>
           </div>
         ) : synchronousQuizzes.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-xl border-2 border-dashed border-yellow-300">
-            <Zap className="w-16 h-16 mx-auto mb-4 text-yellow-300" />
+          <div className="text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-300">
+            <Zap className="w-12 h-12 mx-auto mb-4 text-gray-300" />
             <p className="text-gray-500 text-lg">
               No live quizzes assigned yet
             </p>
           </div>
         ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {synchronousQuizzes.map((a) => (
-              <div
-                key={`${a.quizId}-${a.classId}`}
-                className="border-2 border-yellow-200 rounded-xl p-5 shadow-sm hover:shadow-md transition bg-white"
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <h4 className="text-lg font-bold text-title flex-1">
-                    {a.title}
-                  </h4>
-                  <span className="px-2 py-1 bg-yellow-400 text-yellow-900 text-xs font-bold rounded-full flex items-center gap-1">
-                    <Zap className="w-3 h-3" /> LIVE
-                  </span>
-                </div>
-
-                <div className="space-y-2 text-sm mb-4">
-                  <p className="text-yellow-700 font-semibold">
-                    Class: {a.className}
-                  </p>
-                  {a.subject && (
-                    <p className="text-gray-600">Subject: {a.subject}</p>
-                  )}
-                  <p className="text-gray-600">Students: {a.studentCount}</p>
-                  {a.dueDate && (
-                    <p className="text-gray-600">
-                      Due:{" "}
-                      {new Date(a.dueDate).toLocaleDateString("en-PH", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
-                    </p>
-                  )}
-
-                  {a.quizCode && (
-                    <div className="mt-3 p-3 bg-gradient-to-r from-purple-100 to-pink-100 border-2 border-purple-300 rounded-lg">
-                      <p className="text-xs text-gray-700 font-semibold mb-1">
-                        Quiz Code:
-                      </p>
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-lg font-bold text-purple-700 tracking-widest">
-                          {a.quizCode}
-                        </span>
-                        <button
-                          onClick={() =>
-                            handleCopyCode(
-                              a.quizCode,
-                              `${a.quizId}-${a.classId}`
-                            )
-                          }
-                          className={`p-2 rounded-lg transition ${
-                            copiedCodeId === `${a.quizId}-${a.classId}`
-                              ? "bg-green-500 text-white"
-                              : "bg-white hover:bg-purple-200 text-purple-600"
-                          }`}
-                          title="Copy code to clipboard"
-                        >
-                          {copiedCodeId === `${a.quizId}-${a.classId}` ? (
-                            <CheckCircle className="w-5 h-5" />
-                          ) : (
-                            <Copy className="w-5 h-5" />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex flex-row items-center justify-between pt-2">
-                    <p className="text-gray-500 text-xs">
-                    Assigned:{" "}
-                    {a.assignedAt
-                      ? new Date(
-                          a.assignedAt.seconds * 1000
-                        ).toLocaleDateString("en-PH", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })
-                      : "N/A"}
-                    </p>
-
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-bold ${
-                        a.sessionStatus === "active"
-                          ? "bg-green-100 text-green-800"
-                          : a.sessionStatus === "ended"
-                          ? "bg-red-100 text-red-800"
-                          : "bg-gray-100 text-gray-800"
-                      }`}
-                    >
-                      {a.sessionStatus === "active"
-                        ? "Active"
-                        : a.sessionStatus === "ended"
-                        ? "Ended"
-                        : "Not Started"}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-2 pt-3 border-t border-yellow-200">
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() =>
-                        navigate(
-                          `/teacher/quiz-control/${a.quizId}/${a.classId}`
-                        )
-                      }
-                      className="flex-1 text-yellow-600 font-semibold hover:underline flex items-center justify-center gap-1 text-sm"
-                    >
-                      <Zap className="w-4 h-4" /> Control
-                    </button>
-
-                    <button
-                      onClick={() => navigate(`/teacher/assign-quiz/${a.quizId}?classId=${a.classId}`)}
-                      className="flex-1 text-gray-700 font-semibold hover:underline flex items-center justify-center gap-1 text-sm"
-                    >
-                      <Pen className="w-4 h-4" /> Reassign
-                    </button>
-                  </div>
-                  
-                  <button
-                    onClick={() => handleDeleteAssignment(a, true)}
-                    disabled={deletingAssignment === `${a.quizId}-${a.classId}`}
-                    className="w-full bg-red-600 text-white px-3 py-2 mt-2 rounded-lg hover:bg-red-700 transition flex items-center justify-center gap-2 text-sm font-semibold disabled:bg-gray-400"
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-5">
+              {synchronousQuizzes
+                .slice((syncPage - 1) * ITEMS_PER_PAGE, syncPage * ITEMS_PER_PAGE)
+                .map((a) => (
+                  <div
+                    key={`${a.quizId}-${a.classId}`}
+                    onClick={() => setSelectedSyncQuiz(a)}
+                    className="border border-gray-200 rounded-xl p-3 md:p-5 shadow-sm hover:shadow-md hover:border-amber-300 transition-all cursor-pointer bg-white hover:bg-amber-50/40"
                   >
-                    {deletingAssignment === `${a.quizId}-${a.classId}` ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Deleting...
-                      </>
-                    ) : (
-                      <>
-                        <Trash2 className="w-4 h-4" />
-                        Delete Assignment
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+                    <div className="flex flex-col md:flex-row md:items-start justify-between mb-2 md:mb-3 gap-1">
+                      <h4 className="text-sm md:text-lg font-bold text-title flex-1 leading-tight break-words">
+                        {a.title}
+                      </h4>
+                      <span className="self-start px-1.5 py-0.5 md:px-2 md:py-1 bg-emerald-50 text-emerald-600 text-[10px] md:text-xs font-semibold rounded-full flex items-center gap-1 border border-emerald-200 whitespace-nowrap">
+                        <Zap className="w-2.5 h-2.5 md:w-3 md:h-3" /> LIVE
+                      </span>
+                    </div>
+
+                    <div className="space-y-1 md:space-y-2 text-xs md:text-sm">
+                      <p className="text-gray-700 font-medium truncate">
+                        Class: {a.className}
+                      </p>
+                      <p className="text-gray-600">Students: {a.studentCount}</p>
+                      {a.dueDate && (
+                        <p className="text-gray-600">
+                          Due:{" "}
+                          {new Date(a.dueDate).toLocaleDateString("en-PH", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+            </div>
+            <Pagination currentPage={syncPage} totalItems={synchronousQuizzes.length} onPageChange={setSyncPage} accentColor="yellow" />
+          </>
         )}
       </div>
 
-      {/* Assigned Quizzes Section */}
-      <div className="mb-8 bg-purple-50 rounded-3xl border-2 border-purple-200 p-6">
+      {/* Sync Quiz Detail Dialog */}
+      {mounted && selectedSyncQuiz && createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 font-Outfit animate-fadeIn" onClick={() => setSelectedSyncQuiz(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl animate-slideUp" onClick={(e) => e.stopPropagation()}>
+            {/* Dialog Header */}
+            <div className="flex items-center justify-between p-5 border-b border-gray-100 bg-amber-50/50">
+              <div className="flex items-center gap-2">
+                <Zap className="w-5 h-5 text-amber-500" />
+                <h3 className="text-lg font-bold text-title">{selectedSyncQuiz.title}</h3>
+              </div>
+              <button onClick={() => setSelectedSyncQuiz(null)} className="hover:bg-amber-100 rounded-lg p-1.5 transition text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Dialog Body */}
+            <div className="p-5 space-y-4">
+              {/* Quiz Code */}
+              {selectedSyncQuiz.quizCode && (
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                  <p className="text-xs text-gray-700 font-semibold mb-2">Quiz Code:</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-2xl font-bold text-slate-800 tracking-widest">
+                      {selectedSyncQuiz.quizCode}
+                    </span>
+                    <button
+                      onClick={() => handleCopyCode(selectedSyncQuiz.quizCode, `${selectedSyncQuiz.quizId}-${selectedSyncQuiz.classId}`)}
+                      className={`p-2 rounded-lg transition ${copiedCodeId === `${selectedSyncQuiz.quizId}-${selectedSyncQuiz.classId}`
+                        ? "bg-green-500 text-white"
+                        : "bg-white border border-gray-200 hover:bg-gray-100 text-gray-600"
+                        }`}
+                      title="Copy code to clipboard"
+                    >
+                      {copiedCodeId === `${selectedSyncQuiz.quizId}-${selectedSyncQuiz.classId}` ? (
+                        <CheckCircle className="w-5 h-5" />
+                      ) : (
+                        <Copy className="w-5 h-5" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Info */}
+              <div className="flex items-center justify-between">
+                <p className="text-gray-500 text-sm">
+                  Assigned:{" "}
+                  {selectedSyncQuiz.assignedAt
+                    ? new Date(selectedSyncQuiz.assignedAt.seconds * 1000).toLocaleDateString("en-PH", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })
+                    : "N/A"}
+                </p>
+                <span
+                  className={`px-3 py-1 rounded-full text-xs font-bold ${selectedSyncQuiz.sessionStatus === "active"
+                    ? "bg-green-100 text-green-800"
+                    : selectedSyncQuiz.sessionStatus === "ended"
+                      ? "bg-red-100 text-red-800"
+                      : "bg-gray-100 text-gray-800"
+                    }`}
+                >
+                  {selectedSyncQuiz.sessionStatus === "active"
+                    ? "Active"
+                    : selectedSyncQuiz.sessionStatus === "ended"
+                      ? "Ended"
+                      : "Not Started"}
+                </span>
+              </div>
+
+              {/* Actions */}
+              <div className="flex flex-col gap-2 pt-3 border-t border-gray-200">
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setSelectedSyncQuiz(null);
+                      navigate(`/teacher/quiz-control/${selectedSyncQuiz.quizId}/${selectedSyncQuiz.classId}`);
+                    }}
+                    className="flex-1 bg-amber-50 text-amber-700 border border-amber-200 font-semibold rounded-xl px-3 py-2.5 flex items-center justify-center gap-1 text-sm hover:bg-amber-100 transition"
+                  >
+                    <Zap className="w-4 h-4" /> Control
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedSyncQuiz(null);
+                      navigate(`/teacher/assign-quiz/${selectedSyncQuiz.quizId}?classId=${selectedSyncQuiz.classId}`);
+                    }}
+                    className="flex-1 bg-gray-100 text-gray-700 font-semibold rounded-xl px-3 py-2.5 flex items-center justify-center gap-1 text-sm hover:bg-gray-200 transition"
+                  >
+                    <Pen className="w-4 h-4" /> Reassign
+                  </button>
+                </div>
+                <button
+                  onClick={() => {
+                    setSelectedSyncQuiz(null);
+                    handleDeleteAssignment(selectedSyncQuiz, true);
+                  }}
+                  disabled={deletingAssignment === `${selectedSyncQuiz.quizId}-${selectedSyncQuiz.classId}`}
+                  className="w-full bg-red-600 text-white px-3 py-2.5 rounded-xl hover:bg-red-700 transition flex items-center justify-center gap-2 text-sm font-semibold disabled:bg-gray-400"
+                >
+                  {deletingAssignment === `${selectedSyncQuiz.quizId}-${selectedSyncQuiz.classId}` ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Deleting...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      Delete Assignment
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )
+      }
+
+      <div className="mb-8 bg-white rounded-2xl border border-gray-200 border-l-4 border-l-violet-400 shadow-sm p-6">
         <h3 className="text-xl text-title font-semibold mb-4 flex items-center gap-2">
-          <Users className="w-6 h-6 text-purple-600" /> Asynchronous Quizzes
+          <Users className="w-5 h-5 text-violet-500" /> Asynchronous Quizzes
           {assignedQuizzes.length > 0 && (
-            <span className="bg-purple-400 text-purple-900 px-3 py-1 rounded-full text-sm font-bold">
+            <span className="bg-violet-50 text-violet-700 px-2.5 py-0.5 rounded-full text-sm font-semibold">
               {assignedQuizzes.length}
             </span>
           )}
@@ -1063,35 +1167,78 @@ const getClassificationBadge = (cls, conf, cognitiveLevel, difficulty) => {
             <span className="ml-3 text-gray-600">Loading…</span>
           </div>
         ) : assignedQuizzes.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-xl border-2 border-dashed border-purple-300">
-            <Users className="w-16 h-16 mx-auto mb-4 text-purple-300" />
+          <div className="text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-300">
+            <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
             <p className="text-gray-500 text-lg">No quizzes assigned yet</p>
           </div>
         ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {assignedQuizzes.map((a) => (
-              <div
-                key={`${a.quizId}-${a.classId}`}
-                className="border-2 border-purple-200 rounded-xl p-5 shadow-sm hover:shadow-md transition bg-white"
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <h4 className="text-lg font-bold text-title flex-1">
-                    {a.title}
-                  </h4>
-                </div>
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-5">
+              {assignedQuizzes
+                .slice((asyncPage - 1) * ITEMS_PER_PAGE, asyncPage * ITEMS_PER_PAGE)
+                .map((a) => (
+                  <div
+                    key={`${a.quizId}-${a.classId}`}
+                    onClick={() => setSelectedAsyncQuiz(a)}
+                    className="border border-gray-200 rounded-xl p-3 md:p-5 shadow-sm hover:shadow-md hover:border-violet-300 transition-all cursor-pointer bg-white hover:bg-violet-50/40"
+                  >
+                    <h4 className="text-sm md:text-lg font-bold text-title mb-2 md:mb-3 leading-tight break-words">
+                      {a.title}
+                    </h4>
 
-                <div className="space-y-2 text-sm mb-4">
-                  <p className="text-purple-700 font-semibold">
-                    Class: {a.className}
-                  </p>
-                  {a.subject && (
-                    <p className="text-gray-600">Subject: {a.subject}</p>
+                    <div className="space-y-1 md:space-y-2 text-xs md:text-sm">
+                      <p className="text-gray-700 font-medium truncate">
+                        Class: {a.className}
+                      </p>
+                      <p className="text-gray-600">Students: {a.studentCount}</p>
+                      {a.dueDate && (
+                        <p className="text-gray-600">
+                          Due:{" "}
+                          {new Date(a.dueDate).toLocaleDateString("en-PH", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+            </div>
+            <Pagination currentPage={asyncPage} totalItems={assignedQuizzes.length} onPageChange={setAsyncPage} accentColor="purple" />
+          </>
+        )}
+      </div>
+
+      {/* Async Quiz Detail Dialog */}
+      {
+        mounted && selectedAsyncQuiz && createPortal(
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 font-Outfit animate-fadeIn" onClick={() => setSelectedAsyncQuiz(null)}>
+            <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl animate-slideUp" onClick={(e) => e.stopPropagation()}>
+              {/* Dialog Header */}
+              <div className="flex items-center justify-between p-5 border-b border-gray-100 bg-violet-50/50">
+                <div className="flex items-center gap-2">
+                  <Users className="w-5 h-5 text-violet-500" />
+                  <h3 className="text-lg font-bold text-title">{selectedAsyncQuiz.title}</h3>
+                </div>
+                <button onClick={() => setSelectedAsyncQuiz(null)} className="hover:bg-violet-100 rounded-lg p-1.5 transition text-gray-400 hover:text-gray-600">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Dialog Body */}
+              <div className="p-5 space-y-4">
+                {/* Info */}
+                <div className="space-y-2 text-sm">
+                  <p className="text-gray-700 font-medium">Class: {selectedAsyncQuiz.className}</p>
+                  {selectedAsyncQuiz.subject && (
+                    <p className="text-gray-600">Subject: {selectedAsyncQuiz.subject}</p>
                   )}
-                  <p className="text-gray-600">Students: {a.studentCount}</p>
-                  {a.dueDate && (
+                  <p className="text-gray-600">Students: {selectedAsyncQuiz.studentCount}</p>
+                  {selectedAsyncQuiz.dueDate && (
                     <p className="text-gray-600">
                       Due:{" "}
-                      {new Date(a.dueDate).toLocaleDateString("en-PH", {
+                      {new Date(selectedAsyncQuiz.dueDate).toLocaleDateString("en-PH", {
                         month: "short",
                         day: "numeric",
                         year: "numeric",
@@ -1100,45 +1247,47 @@ const getClassificationBadge = (cls, conf, cognitiveLevel, difficulty) => {
                   )}
                   <p className="text-gray-500 text-xs">
                     Assigned:{" "}
-                    {a.assignedAt
-                      ? new Date(
-                          a.assignedAt.seconds * 1000
-                        ).toLocaleDateString("en-PH", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })
+                    {selectedAsyncQuiz.assignedAt
+                      ? new Date(selectedAsyncQuiz.assignedAt.seconds * 1000).toLocaleDateString("en-PH", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })
                       : "N/A"}
                   </p>
                 </div>
 
-                <div className="flex flex-col gap-2 pt-3 border-t border-purple-200">
+                {/* Actions */}
+                <div className="flex flex-col gap-2 pt-3 border-t border-gray-200">
                   <div className="flex gap-2">
                     <button
-                      onClick={() =>
-                        navigate(
-                          `/teacher/quiz-results/${a.quizId}/${a.classId}`
-                        )
-                      }
-                      className="flex-1 text-blue-600 font-semibold hover:underline flex items-center justify-center gap-1 text-sm"
+                      onClick={() => {
+                        setSelectedAsyncQuiz(null);
+                        navigate(`/teacher/quiz-results/${selectedAsyncQuiz.quizId}/${selectedAsyncQuiz.classId}`);
+                      }}
+                      className="flex-1 bg-violet-50 text-violet-600 border border-violet-200 font-semibold rounded-xl px-3 py-2.5 flex items-center justify-center gap-1 text-sm hover:bg-violet-100 transition"
                     >
                       <Eye className="w-4 h-4" /> Results
                     </button>
-
                     <button
-                      onClick={() => navigate(`/teacher/assign-quiz/${a.quizId}?classId=${a.classId}`)}
-                      className="flex-1 text-gray-700 font-semibold hover:underline flex items-center justify-center gap-1 text-sm"
+                      onClick={() => {
+                        setSelectedAsyncQuiz(null);
+                        navigate(`/teacher/assign-quiz/${selectedAsyncQuiz.quizId}?classId=${selectedAsyncQuiz.classId}`);
+                      }}
+                      className="flex-1 bg-gray-100 text-gray-700 font-semibold rounded-xl px-3 py-2.5 flex items-center justify-center gap-1 text-sm hover:bg-gray-200 transition"
                     >
                       <Pen className="w-4 h-4" /> Reassign
                     </button>
                   </div>
-                  
                   <button
-                    onClick={() => handleDeleteAssignment(a, false)}
-                    disabled={deletingAssignment === `${a.quizId}-${a.classId}`}
-                    className="w-full bg-red-600 text-white px-3 py-2 mt-2 rounded-lg hover:bg-red-700 transition flex items-center justify-center gap-2 text-sm font-semibold disabled:bg-gray-400"
+                    onClick={() => {
+                      setSelectedAsyncQuiz(null);
+                      handleDeleteAssignment(selectedAsyncQuiz, false);
+                    }}
+                    disabled={deletingAssignment === `${selectedAsyncQuiz.quizId}-${selectedAsyncQuiz.classId}`}
+                    className="w-full bg-red-600 text-white px-3 py-2.5 rounded-xl hover:bg-red-700 transition flex items-center justify-center gap-2 text-sm font-semibold disabled:bg-gray-400"
                   >
-                    {deletingAssignment === `${a.quizId}-${a.classId}` ? (
+                    {deletingAssignment === `${selectedAsyncQuiz.quizId}-${selectedAsyncQuiz.classId}` ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
                         Deleting...
@@ -1152,1015 +1301,1015 @@ const getClassificationBadge = (cls, conf, cognitiveLevel, difficulty) => {
                   </button>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+            </div>
+          </div>,
+          document.body
+        )
+      }
 
       {/* Manual Quiz Creation Modal */}
-      {mounted && showManualModal && createPortal (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 font-Outfit animate-fadeIn">
-          <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col animate-slideUp">
-            {/* Header */}
-            <div className="flex justify-between items-center p-6 border-b bg-gradient-to-r from-blue-600 to-blue-400 text-white rounded-t-2xl">
-              <div className="flex items-center gap-3">
-                <PlusCircle className="w-8 h-8" />
+      {
+        mounted && showManualModal && createPortal(
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 font-Outfit animate-fadeIn">
+            <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col animate-slideUp">
+              {/* Header */}
+              <div className="flex justify-between items-center p-6 border-b bg-gradient-to-r from-blue-600 to-blue-400 text-white rounded-t-2xl">
+                <div className="flex items-center gap-3">
+                  <PlusCircle className="w-8 h-8" />
+                  <div>
+                    <h3 className="text-2xl font-bold">Manual Quiz Creation</h3>
+                    <p className="text-sm text-green-100">Create your quiz from scratch</p>
+                  </div>
+                </div>
+                <button
+                  onClick={closeManualModal}
+                  className="text-white hover:bg-blue-500 rounded-lg p-2 transition"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                {/* Quiz Title */}
                 <div>
-                  <h3 className="text-2xl font-bold">Manual Quiz Creation</h3>
-                  <p className="text-sm text-green-100">Create your quiz from scratch</p>
+                  <label className="block text-sm font-bold mb-2 text-gray-700">
+                    Quiz Title *
+                  </label>
+                  <input
+                    type="text"
+                    value={manualQuizTitle}
+                    onChange={(e) => setManualQuizTitle(e.target.value)}
+                    placeholder="e.g., Chapter 5 Quiz"
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
                 </div>
-              </div>
-              <button
-                onClick={closeManualModal}
-                className="text-white hover:bg-blue-500 rounded-lg p-2 transition"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
 
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              {/* Quiz Title */}
-              <div>
-                <label className="block text-sm font-bold mb-2 text-gray-700">
-                  Quiz Title *
-                </label>
-                <input
-                  type="text"
-                  value={manualQuizTitle}
-                  onChange={(e) => setManualQuizTitle(e.target.value)}
-                  placeholder="e.g., Chapter 5 Quiz"
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-
-              {/* Question Type Selector */}
-              <div className="bg-gray-50 p-4 rounded-xl border-2 border-gray-200">
-                 <label className="block text-sm font-bold mb-3 text-gray-700">
-    Add Question Type
-  </label>
-  <div className="flex flex-wrap gap-3">
-    <button
-      onClick={() => addManualQuestion("multiple_choice")}
-      className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
-    >
-      <PlusCircle className="w-5 h-5" /> Multiple Choice
-    </button>
-    <button
-      onClick={() => addManualQuestion("true_false")}
-      className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition"
-    >
-      <PlusCircle className="w-5 h-5" /> True/False
-    </button>
-    <button
-      onClick={() => addManualQuestion("identification")}
-      className="flex items-center gap-2 bg-teal-600 text-white px-4 py-2 rounded-lg hover:bg-teal-700 transition"
-    >
-      <PlusCircle className="w-5 h-5" /> Identification
-    </button>
-  </div>
-              </div>
-
-              {/* Questions List */}
-              {manualQuestions.length === 0 ? (
-                <div className="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
-                  <Brain className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                  <p className="text-gray-500 text-lg">No questions added yet</p>
-                  <p className="text-gray-400 text-sm mt-2">Click the buttons above to add questions</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {manualQuestions.map((q, qIndex) => (
-                    <div
-                      key={qIndex}
-                      className="bg-white border-2 border-gray-300 rounded-xl p-5 hover:border-blue-400 transition"
+                {/* Question Type Selector */}
+                <div className="bg-gray-50 p-4 rounded-xl border-2 border-gray-200">
+                  <label className="block text-sm font-bold mb-3 text-gray-700">
+                    Add Question Type
+                  </label>
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      onClick={() => addManualQuestion("multiple_choice")}
+                      className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
                     >
-                      {/* Question Header */}
-                      <div className="flex items-center gap-3 mb-4">
-                        <span className="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold">
-                          {qIndex + 1}
-                        </span>
-                        <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
-                          {q.type.replace("_", " ").toUpperCase()}
-                        </span>
-                        <button
-                          onClick={() => deleteManualQuestion(qIndex)}
-                          className="ml-auto text-red-600 hover:text-red-700 flex items-center gap-1"
-                        >
-                          <Trash2 className="w-4 h-4" /> Delete
-                        </button>
-                      </div>
+                      <PlusCircle className="w-5 h-5" /> Multiple Choice
+                    </button>
+                    <button
+                      onClick={() => addManualQuestion("true_false")}
+                      className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition"
+                    >
+                      <PlusCircle className="w-5 h-5" /> True/False
+                    </button>
+                    <button
+                      onClick={() => addManualQuestion("identification")}
+                      className="flex items-center gap-2 bg-teal-600 text-white px-4 py-2 rounded-lg hover:bg-teal-700 transition"
+                    >
+                      <PlusCircle className="w-5 h-5" /> Identification
+                    </button>
+                  </div>
+                </div>
 
-                      {/* Question Text */}
-                      <div className="mb-4">
-                        <label className="block text-sm font-semibold mb-2 text-gray-700">
-                          Question *
-                        </label>
-                        <textarea
-                          value={q.question}
-                          onChange={(e) =>
-                            updateManualQuestion(qIndex, "question", e.target.value)
-                          }
-                          placeholder="Enter your question here..."
-                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          rows="2"
-                        />
-                      </div>
+                {/* Questions List */}
+                {manualQuestions.length === 0 ? (
+                  <div className="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
+                    <Brain className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                    <p className="text-gray-500 text-lg">No questions added yet</p>
+                    <p className="text-gray-400 text-sm mt-2">Click the buttons above to add questions</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {manualQuestions.map((q, qIndex) => (
+                      <div
+                        key={qIndex}
+                        className="bg-white border-2 border-gray-300 rounded-xl p-5 hover:border-blue-400 transition"
+                      >
+                        {/* Question Header */}
+                        <div className="flex items-center gap-3 mb-4">
+                          <span className="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold">
+                            {qIndex + 1}
+                          </span>
+                          <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
+                            {q.type.replace("_", " ").toUpperCase()}
+                          </span>
+                          <button
+                            onClick={() => deleteManualQuestion(qIndex)}
+                            className="ml-auto text-red-600 hover:text-red-700 flex items-center gap-1"
+                          >
+                            <Trash2 className="w-4 h-4" /> Delete
+                          </button>
+                        </div>
 
-                      {/* Points and Classification */}
-                      <div className="grid grid-cols-4 gap-4">
-                        <div>
-                          <label className="block text-sm font-semibold mb-2">
-                            Points
+                        {/* Question Text */}
+                        <div className="mb-4">
+                          <label className="block text-sm font-semibold mb-2 text-gray-700">
+                            Question *
                           </label>
-                          <input
-                            type="number"
-                            min="1"
-                            value={editForm.points}
+                          <textarea
+                            value={q.question}
                             onChange={(e) =>
-                              setEditForm({
-                                ...editForm,
-                                points: parseInt(e.target.value) || 1,
-                              })
+                              updateManualQuestion(qIndex, "question", e.target.value)
                             }
-                            className="w-full px-3 py-2 border rounded-lg"
+                            placeholder="Enter your question here..."
+                            className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            rows="2"
                           />
                         </div>
-                        
-                        <div>
-                          <label className="block text-sm font-semibold mb-2">
-                            LOTS/HOTS
-                          </label>
-                          <select
-                            value={editForm.bloom_classification}
-                            onChange={(e) =>
-                              setEditForm({
-                                ...editForm,
-                                bloom_classification: e.target.value,
-                              })
-                            }
-                            className="w-full px-3 py-2 border rounded-lg"
-                          >
-                            <option value="HOTS">HOTS</option>
-                            <option value="LOTS">LOTS</option>
-                          </select>
+
+                        {/* Points and Classification */}
+                        <div className="grid grid-cols-4 gap-4">
+                          <div>
+                            <label className="block text-sm font-semibold mb-2">
+                              Points
+                            </label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={editForm.points}
+                              onChange={(e) =>
+                                setEditForm({
+                                  ...editForm,
+                                  points: parseInt(e.target.value) || 1,
+                                })
+                              }
+                              className="w-full px-3 py-2 border rounded-lg"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-semibold mb-2">
+                              LOTS/HOTS
+                            </label>
+                            <select
+                              value={editForm.bloom_classification}
+                              onChange={(e) =>
+                                setEditForm({
+                                  ...editForm,
+                                  bloom_classification: e.target.value,
+                                })
+                              }
+                              className="w-full px-3 py-2 border rounded-lg"
+                            >
+                              <option value="HOTS">HOTS</option>
+                              <option value="LOTS">LOTS</option>
+                            </select>
+                          </div>
+
+                          {/* ADD THESE TWO NEW DROPDOWNS */}
+                          <div>
+                            <label className="block text-sm font-semibold mb-2">
+                              Cognitive Level
+                            </label>
+                            <select
+                              value={editForm.cognitive_level}
+                              onChange={(e) =>
+                                setEditForm({
+                                  ...editForm,
+                                  cognitive_level: e.target.value,
+                                })
+                              }
+                              className="w-full px-3 py-2 border rounded-lg text-sm"
+                            >
+                              <option value="remembering">Remembering</option>
+                              <option value="understanding">Understanding</option>
+                              <option value="application">Application</option>
+                              <option value="analysis">Analysis</option>
+                              <option value="evaluation">Evaluation</option>
+                              <option value="creating">Creating</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-semibold mb-2">
+                              Difficulty
+                            </label>
+                            <select
+                              value={editForm.difficulty}
+                              onChange={(e) =>
+                                setEditForm({
+                                  ...editForm,
+                                  difficulty: e.target.value,
+                                })
+                              }
+                              className="w-full px-3 py-2 border rounded-lg"
+                            >
+                              <option value="easy">Easy</option>
+                              <option value="average">Average</option>
+                              <option value="difficult">Difficult</option>
+                            </select>
+                          </div>
                         </div>
 
-                        {/* ADD THESE TWO NEW DROPDOWNS */}
-                        <div>
-                          <label className="block text-sm font-semibold mb-2">
-                            Cognitive Level
-                          </label>
-                          <select
-                            value={editForm.cognitive_level}
-                            onChange={(e) =>
-                              setEditForm({
-                                ...editForm,
-                                cognitive_level: e.target.value,
-                              })
-                            }
-                            className="w-full px-3 py-2 border rounded-lg text-sm"
-                          >
-                            <option value="remembering">Remembering</option>
-                            <option value="understanding">Understanding</option>
-                            <option value="application">Application</option>
-                            <option value="analysis">Analysis</option>
-                            <option value="evaluation">Evaluation</option>
-                            <option value="creating">Creating</option>
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-semibold mb-2">
-                            Difficulty
-                          </label>
-                          <select
-                            value={editForm.difficulty}
-                            onChange={(e) =>
-                              setEditForm({
-                                ...editForm,
-                                difficulty: e.target.value,
-                              })
-                            }
-                            className="w-full px-3 py-2 border rounded-lg"
-                          >
-                            <option value="easy">Easy</option>
-                            <option value="average">Average</option>
-                            <option value="difficult">Difficult</option>
-                          </select>
-                        </div>
-                      </div>
-
-                      {/* Multiple Choice Options */}
-                      {q.type === "multiple_choice" && (
-                        <div>
-                          <label className="block text-sm font-semibold mb-2 text-gray-700">
-                            Choices * (Check the correct answer)
-                          </label>
-                          <div className="space-y-2">
-                            {q.choices.map((choice, cIndex) => (
-                              <div
-                                key={cIndex}
-                                className={`flex items-center gap-3 p-3 rounded-lg border-2 ${
-                                  choice.is_correct
+                        {/* Multiple Choice Options */}
+                        {q.type === "multiple_choice" && (
+                          <div>
+                            <label className="block text-sm font-semibold mb-2 text-gray-700">
+                              Choices * (Check the correct answer)
+                            </label>
+                            <div className="space-y-2">
+                              {q.choices.map((choice, cIndex) => (
+                                <div
+                                  key={cIndex}
+                                  className={`flex items-center gap-3 p-3 rounded-lg border-2 ${choice.is_correct
                                     ? "bg-green-50 border-blue-400"
                                     : "bg-gray-50 border-gray-300"
-                                }`}
+                                    }`}
+                                >
+                                  <input
+                                    type="radio"
+                                    checked={choice.is_correct}
+                                    onChange={() =>
+                                      updateManualChoice(
+                                        qIndex,
+                                        cIndex,
+                                        "is_correct",
+                                        true
+                                      )
+                                    }
+                                    className="w-5 h-5 text-blue-600"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={choice.text}
+                                    onChange={(e) =>
+                                      updateManualChoice(
+                                        qIndex,
+                                        cIndex,
+                                        "text",
+                                        e.target.value
+                                      )
+                                    }
+                                    placeholder={`Enter choice ${cIndex + 1}`}
+                                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* True/False Answer */}
+                        {q.type === "true_false" && (
+                          <div>
+                            <label className="block text-sm font-semibold mb-2 text-gray-700">
+                              Correct Answer *
+                            </label>
+                            <div className="flex gap-3">
+                              <button
+                                onClick={() =>
+                                  updateManualQuestion(qIndex, "correct_answer", "True")
+                                }
+                                className={`flex-1 py-3 rounded-lg border-2 font-semibold transition ${q.correct_answer === "True"
+                                  ? "bg-blue-600 text-white border-blue-600"
+                                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                                  }`}
                               >
-                                <input
-                                  type="radio"
-                                  checked={choice.is_correct}
-                                  onChange={() =>
-                                    updateManualChoice(
-                                      qIndex,
-                                      cIndex,
-                                      "is_correct",
-                                      true
-                                    )
-                                  }
-                                  className="w-5 h-5 text-blue-600"
-                                />
-                                <input
-                                  type="text"
-                                  value={choice.text}
-                                  onChange={(e) =>
-                                    updateManualChoice(
-                                      qIndex,
-                                      cIndex,
-                                      "text",
-                                      e.target.value
-                                    )
-                                  }
-                                  placeholder={`Enter choice ${cIndex + 1}`}
-                                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                />
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* True/False Answer */}
-                      {q.type === "true_false" && (
-                        <div>
-                          <label className="block text-sm font-semibold mb-2 text-gray-700">
-                            Correct Answer *
-                          </label>
-                          <div className="flex gap-3">
-                            <button
-                              onClick={() =>
-                                updateManualQuestion(qIndex, "correct_answer", "True")
-                              }
-                              className={`flex-1 py-3 rounded-lg border-2 font-semibold transition ${
-                                q.correct_answer === "True"
+                                True
+                              </button>
+                              <button
+                                onClick={() =>
+                                  updateManualQuestion(qIndex, "correct_answer", "False")
+                                }
+                                className={`flex-1 py-3 rounded-lg border-2 font-semibold transition ${q.correct_answer === "False"
                                   ? "bg-blue-600 text-white border-blue-600"
                                   : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                              }`}
-                            >
-                              True
-                            </button>
-                            <button
-                              onClick={() =>
-                                updateManualQuestion(qIndex, "correct_answer", "False")
-                              }
-                              className={`flex-1 py-3 rounded-lg border-2 font-semibold transition ${
-                                q.correct_answer === "False"
-                                  ? "bg-blue-600 text-white border-blue-600"
-                                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                              }`}
-                            >
-                              False
-                            </button>
+                                  }`}
+                              >
+                                False
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
 
-                      {/* Identification Answer */}
-                      {q.type === "identification" && (
-                        <div>
-                          <label className="block text-sm font-semibold mb-2 text-gray-700">
-                            Correct Answer *
-                          </label>
-                          <input
-                            type="text"
-                            value={q.correct_answer}
-                            onChange={(e) =>
-                              updateManualQuestion(
-                                qIndex,
-                                "correct_answer",
-                                e.target.value
-                              )
-                            }
-                            placeholder="Enter the correct answer"
-                            className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Summary */}
-              {manualQuestions.length > 0 && (
-                <div className="bg-blue-50 p-4 rounded-xl border-2 border-blue-200">
-                  <h4 className="font-bold text-gray-800 mb-2">Quiz Summary</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    <div>
-                      <p className="text-gray-600">Total Questions</p>
-                      <p className="text-2xl font-bold text-blue-600">
-                        {manualQuestions.length}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-gray-600">Total Points</p>
-                      <p className="text-2xl font-bold text-green-600">
-                        {manualQuestions.reduce((sum, q) => sum + q.points, 0)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-gray-600">HOTS</p>
-                      <p className="text-2xl font-bold text-purple-600">
-                        {manualQuestions.filter(q => q.bloom_classification === "HOTS").length}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-gray-600">LOTS</p>
-                      <p className="text-2xl font-bold text-teal-600">
-                        {manualQuestions.filter(q => q.bloom_classification === "LOTS").length}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Footer */}
-            <div className="border-t p-6 bg-gray-50 rounded-b-2xl flex gap-3">
-              <button
-                onClick={closeManualModal}
-                className="px-6 py-3 border-2 border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-100 transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleCreateManualQuiz}
-                disabled={!manualQuizTitle.trim() || manualQuestions.length === 0}
-                className="flex-1 px-6 py-3 bg-button text-white font-semibold rounded-lg hover:bg-buttonHover transition flex items-center justify-center gap-2 disabled:bg-gray-400 disabled:cursor-not-allowed"
-              >
-                <Eye className="w-5 h-5" />
-                See Preview
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {/* PDF Modal */}
-      {mounted && showPdfModal && createPortal(
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 font-Outfit animate-fadeIn">
-          <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col animate-slideUp">
-            <div className="flex justify-between items-center p-6 border-b bg-gradient-to-r from-blue-600 to-blue-400 text-white rounded-t-2xl">
-              <div className="flex items-center gap-3">
-                <FileUp className="w-8 h-8" />
-                <div>
-                  <h3 className="text-2xl font-bold">Upload PDF</h3>
-                  <p className="text-sm text-green-100">Create your quiz using artificial intelligence</p>
-                </div>
-              </div>
-              <button
-                onClick={closePdfModal}
-                className="text-white hover:bg-blue-600 rounded-lg p-2 transition"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              <div>
-                <label className="block text-title text-sm font-semibold mb-2">
-                  Quiz Title
-                </label>
-                <input
-                  type="text"
-                  value={quizTitle}
-                  onChange={(e) => setQuizTitle(e.target.value)}
-                  placeholder="e.g., Midterm Exam"
-                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold mb-2">
-                  Upload PDF
-                </label>
-                <input
-                  type="file"
-                  accept=".pdf"
-                  onChange={handleFileSelect}
-                  className="w-full px-4 py-2 border rounded-lg"
-                />
-                {selectedFile && (
-                  <p className="text-sm text-blue mt-2">
-                    Selected: {selectedFile.name}
-                  </p>
-                )}
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold mb-2">
-                    Multiple Choice
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={numMC}
-                    onChange={(e) => setNumMC(parseInt(e.target.value) || 0)}
-                    className="w-full px-3 py-2 border rounded-lg"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold mb-2">
-                    True/False
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={numTF}
-                    onChange={(e) => setNumTF(parseInt(e.target.value) || 0)}
-                    className="w-full px-3 py-2 border rounded-lg"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold mb-2">
-                    Identification
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={numID}
-                    onChange={(e) => setNumID(parseInt(e.target.value) || 0)}
-                    className="w-full px-3 py-2 border rounded-lg"
-                  />
-                </div>
-              </div>
-
-              <button
-                onClick={handleGenerateQuiz}
-                disabled={loading}
-                className="w-full bg-blue-500 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition disabled:bg-gray-400 flex items-center justify-center gap-2"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    Generating…
-                  </>
-                ) : (
-                  "Generate Quiz"
-                )}
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {/* Preview Modal */}
-      {mounted && showPreviewModal && generatedQuiz && createPortal (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 font-Outfit animate-fadeIn">
-          <div className="bg-white rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col animate-slideUp">
-            {/* Header */}
-            <div className="flex justify-between items-center p-6 border-b bg-gradient-to-r from-blue-600 to-blue-400 text-white rounded-t-2xl">
-              <div className="flex-1">
-                {isEditingTitle ? (
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={editedTitle}
-                      onChange={(e) => setEditedTitle(e.target.value)}
-                      className="text-2xl font-bold bg-white text-gray-800 px-3 py-1 rounded"
-                      autoFocus
-                    />
-                    <button
-                      onClick={handleTitleSave}
-                      className="bg-green-500 hover:bg-green-600 px-3 py-1 rounded text-sm"
-                    >
-                      Save
-                    </button>
-                    <button
-                      onClick={() => setIsEditingTitle(false)}
-                      className="bg-gray-500 hover:bg-gray-600 px-3 py-1 rounded text-sm"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-3">
-                    <Brain className="w-8 h-8" />
-                    <div>
-                      <h3 className="text-2xl font-bold">
-                        {generatedQuiz.title}
-                      </h3>
-                      <div className="flex items-center gap-4 text-sm text-white mt-1">
-                        <span>Questions: {generatedQuiz.questions.length}</span>
-                        <span>
-                          •{" "}
-                          {generatedQuiz.total_points ||
-                            generatedQuiz.questions.reduce(
-                              (s, q) => s + q.points,
-                              0
-                            )}{" "}
-                          points
-                        </span>
-                        {generatedQuiz.classification_stats && (
-                          <>
-                            <span className="font-semibold">
-                              HOTS:{" "}
-                              {generatedQuiz.classification_stats.hots_count} (
-                              {
-                                generatedQuiz.classification_stats
-                                  .hots_percentage
+                        {/* Identification Answer */}
+                        {q.type === "identification" && (
+                          <div>
+                            <label className="block text-sm font-semibold mb-2 text-gray-700">
+                              Correct Answer *
+                            </label>
+                            <input
+                              type="text"
+                              value={q.correct_answer}
+                              onChange={(e) =>
+                                updateManualQuestion(
+                                  qIndex,
+                                  "correct_answer",
+                                  e.target.value
+                                )
                               }
-                              %)
-                            </span>
-                            <span className="font-semibold">
-                              LOTS:{" "}
-                              {generatedQuiz.classification_stats.lots_count} (
-                              {
-                                generatedQuiz.classification_stats
-                                  .lots_percentage
-                              }
-                              %)
-                            </span>
-                          </>
+                              placeholder="Enter the correct answer"
+                              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
                         )}
                       </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Summary */}
+                {manualQuestions.length > 0 && (
+                  <div className="bg-blue-50 p-4 rounded-xl border-2 border-blue-200">
+                    <h4 className="font-bold text-gray-800 mb-2">Quiz Summary</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div>
+                        <p className="text-gray-600">Total Questions</p>
+                        <p className="text-2xl font-bold text-blue-600">
+                          {manualQuestions.length}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600">Total Points</p>
+                        <p className="text-2xl font-bold text-green-600">
+                          {manualQuestions.reduce((sum, q) => sum + q.points, 0)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600">HOTS</p>
+                        <p className="text-2xl font-bold text-purple-600">
+                          {manualQuestions.filter(q => q.bloom_classification === "HOTS").length}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600">LOTS</p>
+                        <p className="text-2xl font-bold text-teal-600">
+                          {manualQuestions.filter(q => q.bloom_classification === "LOTS").length}
+                        </p>
+                      </div>
                     </div>
-                    <button
-                      onClick={handleTitleEdit}
-                      className="bg-blue-700 hover:bg-blue-800 rounded-lg mr-2 px-3 py-1 text-sm flex items-center gap-1 ml-auto"
-                    >
-                      <Pen className="w-4 h-4" /> Edit
-                    </button>
                   </div>
                 )}
               </div>
-              <button
-                onClick={closePreviewModal}
-                className="text-white hover:bg-blue-600 rounded-lg p-2 transition"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
 
-            {/* Classification Filter Tabs */}
-            <div className="px-6 pt-6 pb-4 bg-gray-50 border-b">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-gray-700 mr-2">Filter by:</span>
+              {/* Footer */}
+              <div className="border-t p-6 bg-gray-50 rounded-b-2xl flex gap-3">
                 <button
-                  onClick={() => setClassificationFilter("ALL")}
-                  className={`px-4 py-2 rounded-lg font-semibold text-sm transition ${
-                    classificationFilter === "ALL"
-                      ? "bg-blue-600 text-white shadow-md"
-                      : "bg-white text-gray-700 border-2 border-gray-300 hover:bg-gray-100"
-                  }`}
+                  onClick={closeManualModal}
+                  className="px-6 py-3 border-2 border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-100 transition"
                 >
-                  All Questions ({generatedQuiz.questions.length})
+                  Cancel
                 </button>
                 <button
-                  onClick={() => setClassificationFilter("HOTS")}
-                  className={`px-4 py-2 rounded-lg font-semibold text-sm transition flex items-center gap-2 ${
-                    classificationFilter === "HOTS"
-                      ? "bg-purple-600 text-white shadow-md"
-                      : "bg-white text-purple-700 border-2 border-purple-300 hover:bg-purple-50"
-                  }`}
+                  onClick={handleCreateManualQuiz}
+                  disabled={!manualQuizTitle.trim() || manualQuestions.length === 0}
+                  className="flex-1 px-6 py-3 bg-button text-white font-semibold rounded-lg hover:bg-buttonHover transition flex items-center justify-center gap-2 disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
-                  <Brain className="w-4 h-4" />
-                  HOTS ({generatedQuiz.questions.filter(q => q.bloom_classification === "HOTS").length})
-                </button>
-                <button
-                  onClick={() => setClassificationFilter("LOTS")}
-                  className={`px-4 py-2 rounded-lg font-semibold text-sm transition flex items-center gap-2 ${
-                    classificationFilter === "LOTS"
-                      ? "bg-blue-600 text-white shadow-md"
-                      : "bg-white text-blue-700 border-2 border-blue-300 hover:bg-blue-50"
-                  }`}
-                >
-                  <Snowflake className="w-4 h-4" />
-                  LOTS ({generatedQuiz.questions.filter(q => q.bloom_classification === "LOTS").length})
+                  <Eye className="w-5 h-5" />
+                  See Preview
                 </button>
               </div>
             </div>
+          </div>,
+          document.body
+        )
+      }
 
-            {/* Questions */}
-            <div className="flex-1 overflow-y-auto p-6">
-              {(() => {
-                const grouped = groupQuestionsByType(generatedQuiz.questions);
-                const labels = {
-                  multiple_choice: "Multiple Choice",
-                  true_false: "True/False",
-                  identification: "Identification",
-                };
-                
-                const totalFilteredQuestions = Object.values(grouped).reduce((sum, arr) => sum + arr.length, 0);
-                
-                if (totalFilteredQuestions === 0) {
-                  return (
-                    <div className="text-center py-12">
-                      <Brain className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                      <p className="text-gray-500 text-lg">
-                        No {classificationFilter} questions found
-                      </p>
-                      <p className="text-gray-400 text-sm mt-2">
-                        Try selecting a different filter
-                      </p>
+      {/* PDF Modal */}
+      {
+        mounted && showPdfModal && createPortal(
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 font-Outfit animate-fadeIn">
+            <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col animate-slideUp">
+              <div className="flex justify-between items-center p-6 border-b bg-gradient-to-r from-blue-600 to-blue-400 text-white rounded-t-2xl">
+                <div className="flex items-center gap-3">
+                  <FileUp className="w-8 h-8" />
+                  <div>
+                    <h3 className="text-2xl font-bold">Upload PDF</h3>
+                    <p className="text-sm text-green-100">Create your quiz using artificial intelligence</p>
+                  </div>
+                </div>
+                <button
+                  onClick={closePdfModal}
+                  className="text-white hover:bg-blue-600 rounded-lg p-2 transition"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                <div>
+                  <label className="block text-title text-sm font-semibold mb-2">
+                    Quiz Title
+                  </label>
+                  <input
+                    type="text"
+                    value={quizTitle}
+                    onChange={(e) => setQuizTitle(e.target.value)}
+                    placeholder="e.g., Midterm Exam"
+                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold mb-2">
+                    Upload PDF
+                  </label>
+                  <input
+                    type="file"
+                    accept=".pdf"
+                    onChange={handleFileSelect}
+                    className="w-full px-4 py-2 border rounded-lg"
+                  />
+                  {selectedFile && (
+                    <p className="text-sm text-blue mt-2">
+                      Selected: {selectedFile.name}
+                    </p>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold mb-2">
+                      Multiple Choice
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={numMC}
+                      onChange={(e) => setNumMC(parseInt(e.target.value) || 0)}
+                      className="w-full px-3 py-2 border rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold mb-2">
+                      True/False
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={numTF}
+                      onChange={(e) => setNumTF(parseInt(e.target.value) || 0)}
+                      className="w-full px-3 py-2 border rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold mb-2">
+                      Identification
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={numID}
+                      onChange={(e) => setNumID(parseInt(e.target.value) || 0)}
+                      className="w-full px-3 py-2 border rounded-lg"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleGenerateQuiz}
+                  disabled={loading}
+                  className="w-full bg-blue-500 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition disabled:bg-gray-400 flex items-center justify-center gap-2"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Generating…
+                    </>
+                  ) : (
+                    "Generate Quiz"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )
+      }
+
+      {/* Preview Modal */}
+      {
+        mounted && showPreviewModal && generatedQuiz && createPortal(
+          <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 font-Outfit animate-fadeIn">
+            <div className="bg-white rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col animate-slideUp">
+              {/* Header */}
+              <div className="flex justify-between items-center p-6 border-b bg-gradient-to-r from-blue-600 to-blue-400 text-white rounded-t-2xl">
+                <div className="flex-1">
+                  {isEditingTitle ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={editedTitle}
+                        onChange={(e) => setEditedTitle(e.target.value)}
+                        className="text-2xl font-bold bg-white text-gray-800 px-3 py-1 rounded"
+                        autoFocus
+                      />
+                      <button
+                        onClick={handleTitleSave}
+                        className="bg-green-500 hover:bg-green-600 px-3 py-1 rounded text-sm"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => setIsEditingTitle(false)}
+                        className="bg-gray-500 hover:bg-gray-600 px-3 py-1 rounded text-sm"
+                      >
+                        Cancel
+                      </button>
                     </div>
-                  );
-                }
-                
-                return (
-                  <div className="space-y-8">
-                    {Object.entries(grouped).map(([type, qs]) => {
-                      if (qs.length === 0) return null;
-                      return (
-                        <div key={type} className="space-y-4">
-                          <div className="flex items-center justify-between border-b-2 border-blue-600 pb-2">
-                            <h4 className="text-xl font-bold text-blue-700 flex items-center gap-2">
-                              {labels[type]}
-                              <span className="text-sm bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
-                                {qs.length}{" "}
-                                {qs.length === 1 ? "question" : "questions"}
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <Brain className="w-8 h-8" />
+                      <div>
+                        <h3 className="text-2xl font-bold">
+                          {generatedQuiz.title}
+                        </h3>
+                        <div className="flex items-center gap-4 text-sm text-white mt-1">
+                          <span>Questions: {generatedQuiz.questions.length}</span>
+                          <span>
+                            •{" "}
+                            {generatedQuiz.total_points ||
+                              generatedQuiz.questions.reduce(
+                                (s, q) => s + q.points,
+                                0
+                              )}{" "}
+                            points
+                          </span>
+                          {generatedQuiz.classification_stats && (
+                            <>
+                              <span className="font-semibold">
+                                HOTS:{" "}
+                                {generatedQuiz.classification_stats.hots_count} (
+                                {
+                                  generatedQuiz.classification_stats
+                                    .hots_percentage
+                                }
+                                %)
                               </span>
-                            </h4>
-                            <button
-                              onClick={() => handleAddQuestion(type)}
-                              className="flex items-center gap-1 bg-blue-600 text-white px-3 py-1 rounded-lg hover:bg-blue-700 transition text-sm"
-                            >
-                              <PlusCircle className="w-4 h-4" /> Add Question
-                            </button>
-                          </div>
+                              <span className="font-semibold">
+                                LOTS:{" "}
+                                {generatedQuiz.classification_stats.lots_count} (
+                                {
+                                  generatedQuiz.classification_stats
+                                    .lots_percentage
+                                }
+                                %)
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        onClick={handleTitleEdit}
+                        className="bg-blue-700 hover:bg-blue-800 rounded-lg mr-2 px-3 py-1 text-sm flex items-center gap-1 ml-auto"
+                      >
+                        <Pen className="w-4 h-4" /> Edit
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={closePreviewModal}
+                  className="text-white hover:bg-blue-600 rounded-lg p-2 transition"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
 
-                          <div className="space-y-4">
-                            {qs.map((q) => {
-                              const editing =
-                                editingQuestion === q.originalIndex;
-                              return (
-                                <div
-                                  key={q.originalIndex}
-                                  className="bg-gray-50 rounded-xl p-6 border-2 border-gray-200 hover:border-blue-300 transition"
-                                >
-                                  {editing ? (
-                                    /* EDIT FORM */
-                                    <div className="space-y-4">
-                                      <div>
-                                        <label className="block text-sm font-semibold mb-2">
-                                          Question
-                                        </label>
-                                        <textarea
-                                          value={editForm.question}
-                                          onChange={(e) =>
-                                            setEditForm({
-                                              ...editForm,
-                                              question: e.target.value,
-                                            })
-                                          }
-                                          className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                                          rows="3"
-                                        />
-                                      </div>
+              {/* Classification Filter Tabs */}
+              <div className="px-6 pt-6 pb-4 bg-gray-50 border-b">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-gray-700 mr-2">Filter by:</span>
+                  <button
+                    onClick={() => setClassificationFilter("ALL")}
+                    className={`px-4 py-2 rounded-lg font-semibold text-sm transition ${classificationFilter === "ALL"
+                      ? "bg-blue-600 text-white shadow-md"
+                      : "bg-white text-gray-700 border-2 border-gray-300 hover:bg-gray-100"
+                      }`}
+                  >
+                    All Questions ({generatedQuiz.questions.length})
+                  </button>
+                  <button
+                    onClick={() => setClassificationFilter("HOTS")}
+                    className={`px-4 py-2 rounded-lg font-semibold text-sm transition flex items-center gap-2 ${classificationFilter === "HOTS"
+                      ? "bg-purple-600 text-white shadow-md"
+                      : "bg-white text-purple-700 border-2 border-purple-300 hover:bg-purple-50"
+                      }`}
+                  >
+                    <Brain className="w-4 h-4" />
+                    HOTS ({generatedQuiz.questions.filter(q => q.bloom_classification === "HOTS").length})
+                  </button>
+                  <button
+                    onClick={() => setClassificationFilter("LOTS")}
+                    className={`px-4 py-2 rounded-lg font-semibold text-sm transition flex items-center gap-2 ${classificationFilter === "LOTS"
+                      ? "bg-blue-600 text-white shadow-md"
+                      : "bg-white text-blue-700 border-2 border-blue-300 hover:bg-blue-50"
+                      }`}
+                  >
+                    <Snowflake className="w-4 h-4" />
+                    LOTS ({generatedQuiz.questions.filter(q => q.bloom_classification === "LOTS").length})
+                  </button>
+                </div>
+              </div>
 
-                                      <div className="grid grid-cols-2 gap-4">
+              {/* Questions */}
+              <div className="flex-1 overflow-y-auto p-6">
+                {(() => {
+                  const grouped = groupQuestionsByType(generatedQuiz.questions);
+                  const labels = {
+                    multiple_choice: "Multiple Choice",
+                    true_false: "True/False",
+                    identification: "Identification",
+                  };
+
+                  const totalFilteredQuestions = Object.values(grouped).reduce((sum, arr) => sum + arr.length, 0);
+
+                  if (totalFilteredQuestions === 0) {
+                    return (
+                      <div className="text-center py-12">
+                        <Brain className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                        <p className="text-gray-500 text-lg">
+                          No {classificationFilter} questions found
+                        </p>
+                        <p className="text-gray-400 text-sm mt-2">
+                          Try selecting a different filter
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="space-y-8">
+                      {Object.entries(grouped).map(([type, qs]) => {
+                        if (qs.length === 0) return null;
+                        return (
+                          <div key={type} className="space-y-4">
+                            <div className="flex items-center justify-between border-b-2 border-blue-600 pb-2">
+                              <h4 className="text-xl font-bold text-blue-700 flex items-center gap-2">
+                                {labels[type]}
+                                <span className="text-sm bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+                                  {qs.length}{" "}
+                                  {qs.length === 1 ? "question" : "questions"}
+                                </span>
+                              </h4>
+                              <button
+                                onClick={() => handleAddQuestion(type)}
+                                className="flex items-center gap-1 bg-blue-600 text-white px-3 py-1 rounded-lg hover:bg-blue-700 transition text-sm"
+                              >
+                                <PlusCircle className="w-4 h-4" /> Add Question
+                              </button>
+                            </div>
+
+                            <div className="space-y-4">
+                              {qs.map((q) => {
+                                const editing =
+                                  editingQuestion === q.originalIndex;
+                                return (
+                                  <div
+                                    key={q.originalIndex}
+                                    className="bg-gray-50 rounded-xl p-6 border-2 border-gray-200 hover:border-blue-300 transition"
+                                  >
+                                    {editing ? (
+                                      /* EDIT FORM */
+                                      <div className="space-y-4">
                                         <div>
                                           <label className="block text-sm font-semibold mb-2">
-                                            Points
+                                            Question
                                           </label>
-                                          <input
-                                            type="number"
-                                            min="1"
-                                            value={editForm.points}
+                                          <textarea
+                                            value={editForm.question}
                                             onChange={(e) =>
                                               setEditForm({
                                                 ...editForm,
-                                                points:
-                                                  parseInt(e.target.value) || 1,
+                                                question: e.target.value,
                                               })
                                             }
-                                            className="w-full px-3 py-2 border rounded-lg"
+                                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                            rows="3"
                                           />
                                         </div>
-                                        <div>
-                                          <label className="block text-sm font-semibold mb-2">
-                                            Classification
-                                          </label>
-                                          <select
-                                            value={
-                                              editForm.bloom_classification
-                                            }
-                                            onChange={(e) =>
-                                              setEditForm({
-                                                ...editForm,
-                                                bloom_classification:
-                                                  e.target.value,
-                                              })
-                                            }
-                                            className="w-full px-3 py-2 border rounded-lg"
-                                          >
-                                            <option value="HOTS">HOTS</option>
-                                            <option value="LOTS">LOTS</option>
-                                          </select>
-                                        </div>
-                                      </div>
 
-                                      {editForm.type === "multiple_choice" && (
-                                        <div>
-                                          <label className="block text-sm font-semibold mb-2">
-                                            Choices
-                                          </label>
-                                          <div className="space-y-2">
-                                            {editForm.choices?.map(
-                                              (choice, i) => (
-                                                <div
-                                                  key={i}
-                                                  className="flex items-center gap-2"
-                                                >
-                                                  <input
-                                                    type="checkbox"
-                                                    checked={choice.is_correct}
-                                                    onChange={(e) => {
-                                                      const updated = [
-                                                        ...editForm.choices,
-                                                      ];
-                                                      updated[i].is_correct =
-                                                        e.target.checked;
-                                                      setEditForm({
-                                                        ...editForm,
-                                                        choices: updated,
-                                                      });
-                                                    }}
-                                                    className="w-4 h-4"
-                                                  />
-                                                  <input
-                                                    type="text"
-                                                    value={choice.text}
-                                                    onChange={(e) => {
-                                                      const updated = [
-                                                        ...editForm.choices,
-                                                      ];
-                                                      updated[i].text =
-                                                        e.target.value;
-                                                      setEditForm({
-                                                        ...editForm,
-                                                        choices: updated,
-                                                      });
-                                                    }}
-                                                    placeholder="Choice text"
-                                                    className="flex-1 px-3 py-2 border rounded-lg text-sm"
-                                                  />
-                                                </div>
-                                              )
-                                            )}
-                                          </div>
-                                        </div>
-                                      )}
-
-                                      {editForm.type !== "multiple_choice" && (
-                                        <div>
-                                          <label className="block text-sm font-semibold mb-2">
-                                            Correct Answer
-                                          </label>
-                                          <input
-                                            type="text"
-                                            value={editForm.correct_answer}
-                                            onChange={(e) =>
-                                              setEditForm({
-                                                ...editForm,
-                                                correct_answer: e.target.value,
-                                              })
-                                            }
-                                            className="w-full px-3 py-2 border rounded-lg"
-                                          />
-                                        </div>
-                                      )}
-
-                                      <div className="flex gap-2">
-                                        <button
-                                          onClick={() =>
-                                            handleQuestionSave(q.originalIndex)
-                                          }
-                                          className="flex-1 bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 text-sm font-semibold"
-                                        >
-                                          Save
-                                        </button>
-                                        <button
-                                          onClick={() =>
-                                            setEditingQuestion(null)
-                                          }
-                                          className="flex-1 bg-gray-600 text-white px-3 py-2 rounded-lg hover:bg-gray-700 text-sm font-semibold"
-                                        >
-                                          Cancel
-                                        </button>
-                                        <button
-                                          onClick={() =>
-                                            handleDeleteQuestion(
-                                              q.originalIndex
-                                            )
-                                          }
-                                          className="flex-1 bg-red-600 text-white px-3 py-2 rounded-lg hover:bg-red-700 text-sm font-semibold flex items-center justify-center gap-1"
-                                        >
-                                          <Trash2 className="w-4 h-4" /> Delete
-                                        </button>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    /* DISPLAY */
-                                    <>
-                                      <div className="flex items-start gap-3 mb-4">
-                                        <span className="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold">
-                                          {q.originalIndex + 1}
-                                        </span>
-                                        <div className="flex-1">
-                                          <div className="flex items-center gap-2 mb-2 flex-wrap">
-                                            <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
-                                              {q.type
-                                                .replace("_", " ")
-                                                .toUpperCase()}
-                                            </span>
-                                            <span className="text-sm text-gray-600">
-                                              {q.points}{" "}
-                                              {q.points === 1
-                                                ? "point"
-                                                : "points"}
-                                            </span>
-                                            {getClassificationBadge(
-                                            q.bloom_classification,
-                                            q.classification_confidence,
-                                            q.cognitive_level,      // ADD THIS
-                                            q.difficulty            // ADD THIS
-                                            )}
-                                            <button
-                                              onClick={() =>
-                                                handleQuestionEdit(
-                                                  q.originalIndex,
-                                                  q
-                                                )
+                                        <div className="grid grid-cols-2 gap-4">
+                                          <div>
+                                            <label className="block text-sm font-semibold mb-2">
+                                              Points
+                                            </label>
+                                            <input
+                                              type="number"
+                                              min="1"
+                                              value={editForm.points}
+                                              onChange={(e) =>
+                                                setEditForm({
+                                                  ...editForm,
+                                                  points:
+                                                    parseInt(e.target.value) || 1,
+                                                })
                                               }
-                                              className="ml-auto text-blue-600 hover:text-blue-700 flex items-center gap-1 text-sm"
-                                            >
-                                              <Pen className="w-4 h-4" /> Edit
-                                            </button>
+                                              className="w-full px-3 py-2 border rounded-lg"
+                                            />
                                           </div>
-                                          <p className="text-lg font-semibold text-gray-800">
-                                            {q.question}
-                                          </p>
+                                          <div>
+                                            <label className="block text-sm font-semibold mb-2">
+                                              Classification
+                                            </label>
+                                            <select
+                                              value={
+                                                editForm.bloom_classification
+                                              }
+                                              onChange={(e) =>
+                                                setEditForm({
+                                                  ...editForm,
+                                                  bloom_classification:
+                                                    e.target.value,
+                                                })
+                                              }
+                                              className="w-full px-3 py-2 border rounded-lg"
+                                            >
+                                              <option value="HOTS">HOTS</option>
+                                              <option value="LOTS">LOTS</option>
+                                            </select>
+                                          </div>
                                         </div>
-                                      </div>
 
-                                      {q.choices && (
-                                      <div className="ml-11 space-y-2">
-                                        {q.choices.map((c, i) => (
-                                          <div
-                                            key={i}
-                                            className={`p-3 rounded-lg border-2 ${
-                                              c.is_correct
-                                                ? "bg-green-50 border-green-400"
-                                                : "bg-white border-gray-200"
-                                            }`}
-                                          >
-                                            <div className="flex items-center gap-2">
-                                              <span
-                                                className={
-                                                  c.is_correct
-                                                    ? "text-green-700 font-semibold"
-                                                    : "text-gray-700"
-                                                }
-                                              >
-                                                {c.text}
-                                              </span>
-                                              {c.is_correct && (
-                                                <CheckCircle className="w-5 h-5 text-green-600 ml-auto" />
+                                        {editForm.type === "multiple_choice" && (
+                                          <div>
+                                            <label className="block text-sm font-semibold mb-2">
+                                              Choices
+                                            </label>
+                                            <div className="space-y-2">
+                                              {editForm.choices?.map(
+                                                (choice, i) => (
+                                                  <div
+                                                    key={i}
+                                                    className="flex items-center gap-2"
+                                                  >
+                                                    <input
+                                                      type="checkbox"
+                                                      checked={choice.is_correct}
+                                                      onChange={(e) => {
+                                                        const updated = [
+                                                          ...editForm.choices,
+                                                        ];
+                                                        updated[i].is_correct =
+                                                          e.target.checked;
+                                                        setEditForm({
+                                                          ...editForm,
+                                                          choices: updated,
+                                                        });
+                                                      }}
+                                                      className="w-4 h-4"
+                                                    />
+                                                    <input
+                                                      type="text"
+                                                      value={choice.text}
+                                                      onChange={(e) => {
+                                                        const updated = [
+                                                          ...editForm.choices,
+                                                        ];
+                                                        updated[i].text =
+                                                          e.target.value;
+                                                        setEditForm({
+                                                          ...editForm,
+                                                          choices: updated,
+                                                        });
+                                                      }}
+                                                      placeholder="Choice text"
+                                                      className="flex-1 px-3 py-2 border rounded-lg text-sm"
+                                                    />
+                                                  </div>
+                                                )
                                               )}
                                             </div>
                                           </div>
-                                        ))}
-                                      </div>
-                                    )}
+                                        )}
 
-                                      {!q.choices && (
-                                        <div className="ml-11 mt-3">
-                                          <div className="bg-green-50 border-2 border-green-400 rounded-lg p-3">
-                                            <span className="text-sm text-gray-600 font-semibold">
-                                              Correct Answer:{" "}
-                                            </span>
-                                            <span className="text-green-700 font-bold">
-                                              {q.correct_answer}
-                                            </span>
+                                        {editForm.type !== "multiple_choice" && (
+                                          <div>
+                                            <label className="block text-sm font-semibold mb-2">
+                                              Correct Answer
+                                            </label>
+                                            <input
+                                              type="text"
+                                              value={editForm.correct_answer}
+                                              onChange={(e) =>
+                                                setEditForm({
+                                                  ...editForm,
+                                                  correct_answer: e.target.value,
+                                                })
+                                              }
+                                              className="w-full px-3 py-2 border rounded-lg"
+                                            />
+                                          </div>
+                                        )}
+
+                                        <div className="flex gap-2">
+                                          <button
+                                            onClick={() =>
+                                              handleQuestionSave(q.originalIndex)
+                                            }
+                                            className="flex-1 bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 text-sm font-semibold"
+                                          >
+                                            Save
+                                          </button>
+                                          <button
+                                            onClick={() =>
+                                              setEditingQuestion(null)
+                                            }
+                                            className="flex-1 bg-gray-600 text-white px-3 py-2 rounded-lg hover:bg-gray-700 text-sm font-semibold"
+                                          >
+                                            Cancel
+                                          </button>
+                                          <button
+                                            onClick={() =>
+                                              handleDeleteQuestion(
+                                                q.originalIndex
+                                              )
+                                            }
+                                            className="flex-1 bg-red-600 text-white px-3 py-2 rounded-lg hover:bg-red-700 text-sm font-semibold flex items-center justify-center gap-1"
+                                          >
+                                            <Trash2 className="w-4 h-4" /> Delete
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      /* DISPLAY */
+                                      <>
+                                        <div className="flex items-start gap-3 mb-4">
+                                          <span className="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold">
+                                            {q.originalIndex + 1}
+                                          </span>
+                                          <div className="flex-1">
+                                            <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                              <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
+                                                {q.type
+                                                  .replace("_", " ")
+                                                  .toUpperCase()}
+                                              </span>
+                                              <span className="text-sm text-gray-600">
+                                                {q.points}{" "}
+                                                {q.points === 1
+                                                  ? "point"
+                                                  : "points"}
+                                              </span>
+                                              {getClassificationBadge(
+                                                q.bloom_classification,
+                                                q.classification_confidence,
+                                                q.cognitive_level,      // ADD THIS
+                                                q.difficulty            // ADD THIS
+                                              )}
+                                              <button
+                                                onClick={() =>
+                                                  handleQuestionEdit(
+                                                    q.originalIndex,
+                                                    q
+                                                  )
+                                                }
+                                                className="ml-auto text-blue-600 hover:text-blue-700 flex items-center gap-1 text-sm"
+                                              >
+                                                <Pen className="w-4 h-4" /> Edit
+                                              </button>
+                                            </div>
+                                            <p className="text-lg font-semibold text-gray-800">
+                                              {q.question}
+                                            </p>
                                           </div>
                                         </div>
-                                      )}
-                                    </>
-                                  )}
-                                </div>
-                              );
-                            })}
+
+                                        {q.choices && (
+                                          <div className="ml-11 space-y-2">
+                                            {q.choices.map((c, i) => (
+                                              <div
+                                                key={i}
+                                                className={`p-3 rounded-lg border-2 ${c.is_correct
+                                                  ? "bg-green-50 border-green-400"
+                                                  : "bg-white border-gray-200"
+                                                  }`}
+                                              >
+                                                <div className="flex items-center gap-2">
+                                                  <span
+                                                    className={
+                                                      c.is_correct
+                                                        ? "text-green-700 font-semibold"
+                                                        : "text-gray-700"
+                                                    }
+                                                  >
+                                                    {c.text}
+                                                  </span>
+                                                  {c.is_correct && (
+                                                    <CheckCircle className="w-5 h-5 text-green-600 ml-auto" />
+                                                  )}
+                                                </div>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+
+                                        {!q.choices && (
+                                          <div className="ml-11 mt-3">
+                                            <div className="bg-green-50 border-2 border-green-400 rounded-lg p-3">
+                                              <span className="text-sm text-gray-600 font-semibold">
+                                                Correct Answer:{" "}
+                                              </span>
+                                              <span className="text-green-700 font-bold">
+                                                {q.correct_answer}
+                                              </span>
+                                            </div>
+                                          </div>
+                                        )}
+                                      </>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })()}
-            </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </div>
 
-            {/* Footer */}
-            <div className="border-t p-6 bg-gray-50 rounded-b-2xl flex gap-3">
-              <button
-                onClick={closePreviewModal}
-                className="px-6 py-3 border-2 border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-100 transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={async () => {
-                  if (!window.confirm("Regenerate quiz? This will replace the current quiz with a new one.")) return;
-                  
-                  if (!selectedFile) {
-                    alert("No PDF file found. Please upload again.");
-                    setShowPreviewModal(false);
-                    setShowPdfModal(true);
-                    return;
-                  }
+              {/* Footer */}
+              <div className="border-t p-6 bg-gray-50 rounded-b-2xl flex gap-3">
+                <button
+                  onClick={closePreviewModal}
+                  className="px-6 py-3 border-2 border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-100 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!window.confirm("Regenerate quiz? This will replace the current quiz with a new one.")) return;
 
-                  setLoading(true);
-                  const fd = new FormData();
-                  fd.append("file", selectedFile);
-                  fd.append("num_multiple_choice", numMC);
-                  fd.append("num_true_false", numTF);
-                  fd.append("num_identification", numID);
-                  fd.append("title", generatedQuiz.title || "Generated Quiz");
-
-                  try {
-                    const res = await fetch(
-                      "http://localhost:8000/api/quiz/generate-from-pdf",
-                      {
-                        method: "POST",
-                        body: fd,
-                      }
-                    );
-                    const data = await res.json();
-                    if (data.success) {
-                      setGeneratedQuiz(data.quiz);
-                      setEditingQuestion(null);
-                      setClassificationFilter("ALL");
-                      alert("✅ Quiz regenerated successfully!");
-                    } else {
-                      alert("Failed: " + data.message);
+                    if (!selectedFile) {
+                      alert("No PDF file found. Please upload again.");
+                      setShowPreviewModal(false);
+                      setShowPdfModal(true);
+                      return;
                     }
-                  } catch (e) {
-                    console.error(e);
-                    alert("Generation error – check backend.");
-                  } finally {
-                    setLoading(false);
-                  }
-                }}
-                disabled={loading}
-                className="px-6 py-3 bg-orange-600 text-white font-semibold rounded-lg hover:bg-orange-700 transition flex items-center justify-center gap-2 disabled:bg-gray-400"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    Regenerating...
-                  </>
-                ) : (
-                  <>
-                    <Brain className="w-5 h-5" />
-                    Regenerate Quiz
-                  </>
-                )}
-              </button>
-              <button
-                onClick={handleSaveQuiz}
-                disabled={publishing}
-                className="flex-1 px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2 disabled:bg-gray-400"
-              >
-                {publishing ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    Publishing...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="w-5 h-5" />
-                    Publish Quiz
-      </>
-                )}
-              </button>
+
+                    setLoading(true);
+                    const fd = new FormData();
+                    fd.append("file", selectedFile);
+                    fd.append("num_multiple_choice", numMC);
+                    fd.append("num_true_false", numTF);
+                    fd.append("num_identification", numID);
+                    fd.append("title", generatedQuiz.title || "Generated Quiz");
+
+                    try {
+                      const res = await fetch(
+                        "https://iquizu-backend-production.up.railway.app/api/quiz/generate-from-pdf",
+                        {
+                          method: "POST",
+                          body: fd,
+                        }
+                      );
+                      const data = await res.json();
+                      if (data.success) {
+                        setGeneratedQuiz(data.quiz);
+                        setEditingQuestion(null);
+                        setClassificationFilter("ALL");
+                        alert("✅ Quiz regenerated successfully!");
+                      } else {
+                        alert("Failed: " + data.message);
+                      }
+                    } catch (e) {
+                      console.error(e);
+                      alert("Generation error – check backend.");
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                  disabled={loading}
+                  className="px-6 py-3 bg-orange-600 text-white font-semibold rounded-lg hover:bg-orange-700 transition flex items-center justify-center gap-2 disabled:bg-gray-400"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Regenerating...
+                    </>
+                  ) : (
+                    <>
+                      <Brain className="w-5 h-5" />
+                      Regenerate Quiz
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={handleSaveQuiz}
+                  disabled={publishing}
+                  className="flex-1 px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2 disabled:bg-gray-400"
+                >
+                  {publishing ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Publishing...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-5 h-5" />
+                      Publish Quiz
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
-          </div>
-        </div>,
-        document.body
-      )}
-    </div>
+          </div>,
+          document.body
+        )
+      }
+    </div >
   );
 }

@@ -33,7 +33,7 @@ export default function TeacherProfile({ user, userDoc }) {
     // Handle password reset email
     const handleChangePassword = async () => {
         const email = user?.email || emailAddr;
-        
+
         if (!email) {
             alert('❌ No email address found. Please add an email to your profile first.');
             return;
@@ -47,13 +47,13 @@ export default function TeacherProfile({ user, userDoc }) {
 
         try {
             setSendingPasswordReset(true);
-            
+
             await sendPasswordResetEmail(auth, email);
-            
+
             alert(`✅ Password reset email sent to ${email}\n\nPlease check your inbox and spam folder. Click the link in the email to reset your password.`);
         } catch (error) {
             console.error("Error sending password reset email:", error);
-            
+
             let errorMsg = 'Failed to send password reset email. ';
             if (error.code === 'auth/user-not-found') {
                 errorMsg += 'No account found with this email.';
@@ -64,7 +64,7 @@ export default function TeacherProfile({ user, userDoc }) {
             } else {
                 errorMsg += error.message;
             }
-            
+
             alert(errorMsg);
         } finally {
             setSendingPasswordReset(false);
@@ -81,7 +81,7 @@ export default function TeacherProfile({ user, userDoc }) {
     }
 
     return (
-        <div className="py-6 px-2 md:p-8 font-Outfit animate-fadeIn">
+        <div className="py-4 px-3 md:py-6 md:px-8 font-Outfit animate-fadeIn">
             <div className="flex flex-row gap-3 items-center ">
                 <CircleUserRound className="w-8 h-8 text-blue-500 mb-6" />
                 <div className="flex flex-col mb-6">
@@ -93,13 +93,13 @@ export default function TeacherProfile({ user, userDoc }) {
                     </p>
                 </div>
             </div>
-            <div className="flex md:grid-cols-2 gap-6 mt-2 animate-slideIn">
+            <div className="flex flex-col-reverse md:flex-row gap-6 mt-2 animate-slideIn">
                 <div className="bg-components p-6 rounded-2xl shadow-md w-full">
                     <h2 className="text-xl md:text-2xl text-title font-semibold">User Information</h2>
                     {editing ? (
                         <div className="mt-4 space-y-4">
-                            <div className="flex flex-row gap-4 mt-4 items-center">
-                                <label className="w-36 text-subtext">Full Name:</label>
+                            <div className="flex flex-col sm:flex-row gap-1 sm:gap-4 mt-4 sm:items-center">
+                                <label className="sm:w-36 text-subtext text-sm sm:text-base">Full Name:</label>
                                 <input
                                     type="text"
                                     value={fullName || displayName}
@@ -107,8 +107,8 @@ export default function TeacherProfile({ user, userDoc }) {
                                     className="border p-1 rounded-xl w-full"
                                 />
                             </div>
-                            <div className="flex flex-row gap-4 mt-4 items-center">
-                                <label className="w-36 text-subtext">Department:</label>
+                            <div className="flex flex-col sm:flex-row gap-1 sm:gap-4 mt-4 sm:items-center">
+                                <label className="sm:w-36 text-subtext text-sm sm:text-base">Department:</label>
                                 <input
                                     type="text"
                                     value={department}
@@ -116,8 +116,8 @@ export default function TeacherProfile({ user, userDoc }) {
                                     className="border p-1 rounded-xl w-full"
                                 />
                             </div>
-                            <div className="flex flex-row gap-4 mt-4 items-center">
-                                <label className="w-36 text-subtext">Email Address:</label>
+                            <div className="flex flex-col sm:flex-row gap-1 sm:gap-4 mt-4 sm:items-center">
+                                <label className="sm:w-36 text-subtext text-sm sm:text-base">Email Address:</label>
                                 <input
                                     type="email"
                                     value={emailAddr}
@@ -125,8 +125,8 @@ export default function TeacherProfile({ user, userDoc }) {
                                     className="border p-1 rounded-xl w-full"
                                 />
                             </div>
-                            <div className="flex flex-row gap-4 mt-4 items-center">
-                                <label className="w-36 text-subtext">Phone:</label>
+                            <div className="flex flex-col sm:flex-row gap-1 sm:gap-4 mt-4 sm:items-center">
+                                <label className="sm:w-36 text-subtext text-sm sm:text-base">Phone:</label>
                                 <input
                                     type="tel"
                                     value={phone}
@@ -136,42 +136,42 @@ export default function TeacherProfile({ user, userDoc }) {
                                     }}
                                     maxLength={11}
                                     className="border p-1 rounded-xl w-full"
-                                    />
+                                />
                             </div>
                         </div>
                     ) : (
-                        <div className="mt-4 space-y-6">
-                            <div className="flex items-center gap-4">
-                                <span className="w-36 text-subtext">Full Name:</span>
+                        <div className="mt-4 space-y-4 sm:space-y-6">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
+                                <span className="sm:w-36 text-subtext text-sm sm:text-base">Full Name:</span>
                                 <span className="font-medium">{fullName || displayName}</span>
                             </div>
-                            <div className="flex items-center gap-4">
-                                <span className="w-36 text-subtext">Department:</span>
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
+                                <span className="sm:w-36 text-subtext text-sm sm:text-base">Department:</span>
                                 <span className="font-medium">{department || "-"}</span>
                             </div>
-                            <div className="flex items-center gap-4">
-                                <span className="w-36 text-subtext">Email Address:</span>
-                                <span className="font-medium">{emailAddr || "-"}</span>
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
+                                <span className="sm:w-36 text-subtext text-sm sm:text-base">Email Address:</span>
+                                <span className="font-medium break-all sm:break-normal">{emailAddr || "-"}</span>
                             </div>
-                            <div className="flex items-center gap-4">
-                                <span className="w-36 text-subtext">Phone:</span>
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
+                                <span className="sm:w-36 text-subtext text-sm sm:text-base">Phone:</span>
                                 <span className="font-medium">{phone || "-"}</span>
                             </div>
                         </div>
                     )}
                 </div>
-                <div className="flex flex-col p-10 gap-4 items-center rounded-3xl bg-components shadow-md">
-                    <div className="w-52 h-52 text-8xl bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-white font-bold shadow-lg ring-2 ring-white/20">
+                <div className="flex flex-col p-6 md:p-10 gap-4 items-center rounded-3xl bg-components shadow-md md:min-w-[280px]">
+                    <div className="w-32 h-32 text-6xl md:w-52 md:h-52 md:text-8xl bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-white font-bold shadow-lg ring-2 ring-white/20">
                         {userInitial}
                     </div>
-                    <button className="bg-blue-500 px-6 py-4 rounded-xl text-base text-white font-semibold hover:bg-blue-700 transition">
+                    <button className="bg-blue-500 px-4 py-3 md:px-6 md:py-4 rounded-xl text-sm md:text-base text-white font-semibold hover:bg-blue-700 transition w-full md:w-auto text-center">
                         Change Profile Photo
                     </button>
                 </div>
             </div>
 
             {/* Action Buttons */}
-            <div className="flex gap-3 flex-wrap animate-slideIn">
+            <div className="flex gap-2 sm:gap-3 flex-wrap animate-slideIn">
                 <button
                     className="bg-blue-500 px-4 py-2 rounded-lg text-white font-semibold hover:bg-blue-700 transition mt-4"
                     onClick={() => {
