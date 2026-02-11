@@ -28,6 +28,18 @@ export default function ArchivedQuizzes({ user }) {
     setMounted(true);
   }, []);
 
+  // Lock scroll when delete confirm modal is open
+  useEffect(() => {
+    if (!showDeleteConfirm) return;
+    const scrollableParent = document.querySelector('.overflow-y-auto');
+    document.body.style.overflow = 'hidden';
+    if (scrollableParent) scrollableParent.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = '';
+      if (scrollableParent) scrollableParent.style.overflow = '';
+    };
+  }, [showDeleteConfirm]);
+
   useEffect(() => {
     fetchArchivedQuizzes();
   }, [user]);

@@ -486,7 +486,7 @@ function App() {
           />
 
           {/* TEACHER PROFILE ROUTE */}
-          <Route path="profile" element={<TeacherProfile />} />
+          <Route path="profile" element={<TeacherProfile user={authUser} userDoc={userDoc} />} />
         </Route>
 
         {/* ============================
