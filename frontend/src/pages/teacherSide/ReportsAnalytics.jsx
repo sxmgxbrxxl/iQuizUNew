@@ -39,7 +39,9 @@ import {
   ResponsiveContainer,
   Cell,
   ScatterChart,
-  Scatter
+  Scatter,
+  AreaChart,
+  Area
 } from "recharts";
 
 export default function ReportsAnalytics() {
@@ -831,34 +833,91 @@ export default function ReportsAnalytics() {
                     </div>
                   </div>
 
-                  <div className="bg-white rounded-xl md:rounded-2xl p-4 md:p-6 shadow-md mb-4 md:mb-8">
-                    <div className="flex items-center gap-2 mb-4 md:mb-6">
-                      <Target className="w-5 h-5 md:w-6 md:h-6 text-blue-600" />
-                      <h2 className="text-base md:text-xl font-bold text-gray-800">Item Analysis Overview</h2>
+                  <div className="bg-white rounded-xl md:rounded-2xl border border-gray-200 mb-4 md:mb-8 overflow-hidden">
+                    {/* Card Header */}
+                    <div className="p-4 md:p-6 pb-2 md:pb-3">
+                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-0">
+                        <div>
+                          <h2 className="text-base md:text-xl font-semibold text-gray-900 tracking-tight">Item Analysis Overview</h2>
+                          <p className="text-xs md:text-sm text-gray-500 mt-0.5">Percentage correct per question</p>
+                        </div>
+                      </div>
                     </div>
 
+                    {/* Chart */}
                     {analytics.itemAnalysis.length > 0 ? (
-                      <div className="-mx-2 md:mx-0">
-                        <ResponsiveContainer width="100%" height={window.innerWidth < 768 ? 250 : 400}>
-                          <BarChart data={analytics.itemAnalysis} margin={{ top: 5, right: 5, left: window.innerWidth < 768 ? -15 : 0, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" />
+                      <div className="px-2 md:px-6 pb-4 md:pb-6">
+                        <ResponsiveContainer width="100%" height={window.innerWidth < 768 ? 220 : 350}>
+                          <AreaChart data={analytics.itemAnalysis} margin={{ top: 10, right: 10, left: window.innerWidth < 768 ? -20 : 0, bottom: 0 }}>
+                            <defs>
+                              <linearGradient id="areaGradientMain" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#18181b" stopOpacity={0.3} />
+                                <stop offset="50%" stopColor="#18181b" stopOpacity={0.1} />
+                                <stop offset="100%" stopColor="#18181b" stopOpacity={0.01} />
+                              </linearGradient>
+                              <linearGradient id="areaGradientSecondary" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#a1a1aa" stopOpacity={0.2} />
+                                <stop offset="50%" stopColor="#a1a1aa" stopOpacity={0.08} />
+                                <stop offset="100%" stopColor="#a1a1aa" stopOpacity={0.01} />
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid vertical={false} stroke="#f4f4f5" />
                             <XAxis
                               dataKey="questionNumber"
-                              label={window.innerWidth >= 768 ? { value: 'Question Number', position: 'insideBottom', offset: -5 } : undefined}
                               tickFormatter={(value) => `Q${value}`}
-                              tick={{ fontSize: window.innerWidth < 768 ? 10 : 12 }}
+                              axisLine={false}
+                              tickLine={false}
+                              tick={{ fontSize: window.innerWidth < 768 ? 10 : 12, fill: '#a1a1aa' }}
+                              dy={8}
                             />
                             <YAxis
-                              label={window.innerWidth >= 768 ? { value: 'Percentage Correct (%)', angle: -90, position: 'insideLeft' } : undefined}
                               domain={[0, 100]}
-                              tick={{ fontSize: window.innerWidth < 768 ? 10 : 12 }}
+                              axisLine={false}
+                              tickLine={false}
+                              tick={{ fontSize: window.innerWidth < 768 ? 10 : 12, fill: '#a1a1aa' }}
+                              tickFormatter={(value) => `${value}%`}
+                              width={window.innerWidth < 768 ? 35 : 45}
                             />
                             <Tooltip
-                              formatter={(value) => [`${value}%`, 'Correct']}
-                              labelFormatter={(label) => `Question ${label}`}
+                              content={({ active, payload, label }) => {
+                                if (active && payload && payload.length) {
+                                  return (
+                                    <div className="bg-white rounded-lg border border-gray-200 shadow-lg px-3 py-2">
+                                      <p className="text-xs font-medium text-gray-500 mb-1">Question {label}</p>
+                                      {payload.map((entry, index) => (
+                                        <div key={index} className="flex items-center gap-2">
+                                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.stroke || entry.color }}></div>
+                                          <span className="text-sm font-semibold text-gray-900">{entry.value}%</span>
+                                          <span className="text-xs text-gray-500">{entry.name}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              }}
                             />
-                            <Bar dataKey="percentCorrect" fill="#3b82f6" radius={[6, 6, 0, 0]} />
-                          </BarChart>
+                            <Area
+                              type="basis"
+                              dataKey="percentCorrect"
+                              name="Correct"
+                              stroke="#18181b"
+                              strokeWidth={2}
+                              fill="url(#areaGradientMain)"
+                              dot={false}
+                              activeDot={{ r: 4, strokeWidth: 2, stroke: '#18181b', fill: '#fff' }}
+                            />
+                            <Area
+                              type="basis"
+                              dataKey="difficultyIndex"
+                              name="Difficulty"
+                              stroke="#a1a1aa"
+                              strokeWidth={1.5}
+                              fill="url(#areaGradientSecondary)"
+                              dot={false}
+                              activeDot={{ r: 3, strokeWidth: 2, stroke: '#a1a1aa', fill: '#fff' }}
+                            />
+                          </AreaChart>
                         </ResponsiveContainer>
                       </div>
                     ) : (
