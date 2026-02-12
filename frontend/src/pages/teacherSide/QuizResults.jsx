@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -28,6 +28,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../../firebase/firebaseConfig";
 import * as XLSX from "xlsx";
+import Toast from "../../components/Toast";
 
 export default function QuizResults() {
   const navigate = useNavigate();
@@ -50,6 +51,12 @@ export default function QuizResults() {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // Custom Toast state
+  const [toast, setToast] = useState({ show: false, type: "", title: "", message: "" });
+  const showToast = useCallback((type, title, message) => {
+    setToast({ show: true, type, title, message });
+  }, []);
+
   useEffect(() => {
     fetchData();
   }, [quizId, classId]);
@@ -57,7 +64,7 @@ export default function QuizResults() {
   const fetchData = async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const quizDoc = await getDoc(doc(db, "quizzes", quizId));
       if (!quizDoc.exists()) {
@@ -74,7 +81,7 @@ export default function QuizResults() {
         where("role", "==", "student")
       );
       const studentSnapshot = await getDocs(studentsQuery);
-      
+
       const allStudents = [];
       studentSnapshot.forEach((docSnap) => {
         const data = docSnap.data();
@@ -97,7 +104,7 @@ export default function QuizResults() {
         where("quizMode", "==", "asynchronous")
       );
       const assignmentsSnapshot = await getDocs(assignmentsQuery);
-      
+
       const assignmentIds = [];
       assignmentsSnapshot.forEach((docSnap) => {
         assignmentIds.push(docSnap.id);
@@ -112,7 +119,7 @@ export default function QuizResults() {
       const batchSize = 10;
       for (let i = 0; i < assignmentIds.length; i += batchSize) {
         const batch = assignmentIds.slice(i, i + batchSize);
-        
+
         const submissionsQuery = query(
           collection(db, "quizSubmissions"),
           where("assignmentId", "in", batch),
@@ -123,9 +130,9 @@ export default function QuizResults() {
         submissionsSnapshot.forEach((docSnap) => {
           const data = docSnap.data();
           const studentInClass = allStudents.find(s => s.id === data.studentId);
-          
+
           console.log("Anti-cheat data:", data.antiCheatData); // Debug log
-          
+
           submissionsData.push({
             id: docSnap.id,
             studentId: data.studentId,
@@ -168,7 +175,7 @@ export default function QuizResults() {
   const handleViewDetails = (studentId) => {
     const result = getStudentResult(studentId);
     if (!result) {
-      alert("No submission found for this student");
+      showToast("warning", "No Submission", "No submission found for this student");
       return;
     }
     setStudentAnswers(result);
@@ -179,7 +186,7 @@ export default function QuizResults() {
   const handleViewAntiCheat = (e, result) => {
     e.stopPropagation();
     if (!result.antiCheatData) {
-      alert("No anti-cheat data available for this submission");
+      showToast("info", "No Data", "No anti-cheat data available for this submission");
       return;
     }
     setSelectedAntiCheatData(result.antiCheatData);
@@ -202,14 +209,14 @@ export default function QuizResults() {
 
   const handleGrantRetake = async () => {
     if (!retakeDeadline) {
-      alert("Please select a deadline for the retake");
+      showToast("warning", "Missing Deadline", "Please select a deadline for the retake");
       return;
     }
 
     setActionLoading(true);
     try {
       const result = getStudentResult(selectedStudentForAction.id);
-      
+
       const newAssignment = {
         quizId: quizId,
         classId: classId,
@@ -227,12 +234,12 @@ export default function QuizResults() {
       await addDoc(collection(db, "assignedQuizzes"), newAssignment);
 
       const actionType = result ? "Retake" : "Quiz access";
-      alert(`${actionType} granted to ${selectedStudentForAction.name}!`);
+      showToast("success", "Access Granted!", `${actionType} granted to ${selectedStudentForAction.name}!`);
       setShowRetakeModal(false);
       fetchData();
     } catch (error) {
       console.error("Error granting retake:", error);
-      alert("Failed to grant access. Please try again.");
+      showToast("error", "Failed", "Failed to grant access. Please try again.");
     } finally {
       setActionLoading(false);
     }
@@ -240,7 +247,7 @@ export default function QuizResults() {
 
   const handleReschedule = async () => {
     if (!reschedDeadline) {
-      alert("Please select a new deadline");
+      showToast("warning", "Missing Deadline", "Please select a new deadline");
       return;
     }
 
@@ -253,11 +260,11 @@ export default function QuizResults() {
         where("studentId", "==", selectedStudentForAction.id),
         where("quizMode", "==", "asynchronous")
       );
-      
+
       const assignmentsSnapshot = await getDocs(assignmentsQuery);
-      
+
       if (assignmentsSnapshot.empty) {
-        alert("No assignment found for this student");
+        showToast("error", "Not Found", "No assignment found for this student");
         setActionLoading(false);
         return;
       }
@@ -268,12 +275,12 @@ export default function QuizResults() {
         rescheduledAt: serverTimestamp(),
       });
 
-      alert(`Quiz rescheduled for ${selectedStudentForAction.name}!`);
+      showToast("success", "Rescheduled!", `Quiz rescheduled for ${selectedStudentForAction.name}!`);
       setShowReschedModal(false);
       fetchData();
     } catch (error) {
       console.error("Error rescheduling:", error);
-      alert("Failed to reschedule quiz. Please try again.");
+      showToast("error", "Failed", "Failed to reschedule quiz. Please try again.");
     } finally {
       setActionLoading(false);
     }
@@ -290,7 +297,7 @@ export default function QuizResults() {
   const handleDownloadExcel = () => {
     const excelData = students.map((student) => {
       const result = getStudentResult(student.id);
-      
+
       return {
         "Last Name": student.lastName || "",
         "First Name": student.firstName || "",
@@ -299,8 +306,8 @@ export default function QuizResults() {
         "Score": result ? `${result.correctPoints}/${result.totalPoints}` : "—",
         "Raw Score (%)": result ? result.rawScorePercentage.toFixed(2) : "—",
         "Base-50 Grade (%)": result ? result.base50ScorePercentage.toFixed(2) : "—",
-        "Submitted At": result?.submittedAt 
-          ? new Date(result.submittedAt.seconds * 1000).toLocaleString() 
+        "Submitted At": result?.submittedAt
+          ? new Date(result.submittedAt.seconds * 1000).toLocaleString()
           : "—",
         "Flagged for Review": result?.antiCheatData?.flaggedForReview ? "Yes" : "No",
         "Tab Switches": result?.antiCheatData?.tabSwitchCount || 0,
@@ -445,7 +452,7 @@ export default function QuizResults() {
                       key={student.id}
                       className={`border-b transition ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"} ${result?.antiCheatData?.flaggedForReview ? "bg-red-50" : "hover:bg-blue-50"}`}
                     >
-                      <td 
+                      <td
                         className="px-6 py-4 cursor-pointer"
                         onClick={() => submitted && handleViewDetails(student.id)}
                       >
@@ -453,13 +460,13 @@ export default function QuizResults() {
                           {student.firstName} {student.lastName}
                         </p>
                       </td>
-                      <td 
+                      <td
                         className="px-6 py-4 text-gray-600 cursor-pointer"
                         onClick={() => submitted && handleViewDetails(student.id)}
                       >
                         {student.email}
                       </td>
-                      <td 
+                      <td
                         className="px-6 py-4 text-center cursor-pointer"
                         onClick={() => submitted && handleViewDetails(student.id)}
                       >
@@ -471,7 +478,7 @@ export default function QuizResults() {
                           <span className="text-gray-400">—</span>
                         )}
                       </td>
-                      <td 
+                      <td
                         className="px-6 py-4 text-center cursor-pointer"
                         onClick={() => submitted && handleViewDetails(student.id)}
                       >
@@ -483,7 +490,7 @@ export default function QuizResults() {
                           <span className="text-gray-400">—</span>
                         )}
                       </td>
-                      <td 
+                      <td
                         className="px-6 py-4 text-center cursor-pointer"
                         onClick={() => submitted && handleViewDetails(student.id)}
                       >
@@ -495,7 +502,7 @@ export default function QuizResults() {
                           <span className="text-gray-400">—</span>
                         )}
                       </td>
-                      <td 
+                      <td
                         className="px-6 py-4 text-center cursor-pointer"
                         onClick={() => submitted && handleViewDetails(student.id)}
                       >
@@ -513,11 +520,10 @@ export default function QuizResults() {
                         {submitted && result.antiCheatData ? (
                           <button
                             onClick={(e) => handleViewAntiCheat(e, result)}
-                            className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-white text-xs font-semibold transition ${
-                              result.antiCheatData.flaggedForReview
-                                ? "bg-red-600 hover:bg-red-700"
-                                : "bg-green-600 hover:bg-green-700"
-                            }`}
+                            className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-white text-xs font-semibold transition ${result.antiCheatData.flaggedForReview
+                              ? "bg-red-600 hover:bg-red-700"
+                              : "bg-green-600 hover:bg-green-700"
+                              }`}
                           >
                             <Shield className="w-4 h-4" />
                             <span className="hidden sm:inline">View</span>
@@ -626,11 +632,11 @@ export default function QuizResults() {
                     const activityHour = activityTime.getHours().toString().padStart(2, '0');
                     const activityMin = activityTime.getMinutes().toString().padStart(2, '0');
                     const activitySec = activityTime.getSeconds().toString().padStart(2, '0');
-                    
+
                     let icon = '⚠️';
                     let bgColor = 'bg-yellow-50 border-yellow-200';
                     let textColor = 'text-yellow-700';
-                    
+
                     if (activity.type === 'tab_switch') {
                       icon = '🔄';
                       bgColor = 'bg-blue-50 border-blue-200';
@@ -652,7 +658,7 @@ export default function QuizResults() {
                       bgColor = 'bg-red-50 border-red-200';
                       textColor = 'text-red-700';
                     }
-                    
+
                     return (
                       <div key={idx} className={`border rounded-lg p-3 ${bgColor}`}>
                         <div className="flex items-start gap-3">
@@ -762,9 +768,8 @@ export default function QuizResults() {
                     return (
                       <div
                         key={questionIndex}
-                        className={`border-2 rounded-lg p-4 ${
-                          isCorrect ? "bg-green-50 border-green-300" : "bg-red-50 border-red-300"
-                        }`}
+                        className={`border-2 rounded-lg p-4 ${isCorrect ? "bg-green-50 border-green-300" : "bg-red-50 border-red-300"
+                          }`}
                       >
                         <div className="flex items-start gap-3 mb-2">
                           <span className="font-bold text-lg text-gray-700">
@@ -817,7 +822,7 @@ export default function QuizResults() {
                 <X className="w-6 h-6" />
               </button>
             </div>
-            
+
             <p className="text-gray-600 mb-4">
               Grant <span className="font-semibold">{selectedStudentForAction.name}</span> access to take the quiz.
             </p>
@@ -872,7 +877,7 @@ export default function QuizResults() {
                 <X className="w-6 h-6" />
               </button>
             </div>
-            
+
             <p className="text-gray-600 mb-4">
               Extend the deadline for <span className="font-semibold">{selectedStudentForAction.name}</span>.
             </p>
@@ -916,6 +921,7 @@ export default function QuizResults() {
           </div>
         </div>
       )}
+      <Toast {...toast} onClose={() => setToast(prev => ({ ...prev, show: false }))} />
     </div>
   );
 }

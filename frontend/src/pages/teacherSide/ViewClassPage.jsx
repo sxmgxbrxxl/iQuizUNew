@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useParams, useNavigate } from "react-router-dom";
 import { Loader2, ArrowLeft, Circle, School, Trash, Eye, Pen, Zap, Users, Trash2, PlusCircle, X, BookOpen } from "lucide-react";
@@ -7,6 +7,9 @@ import { doc, getDoc, collection, query, where, getDocs, deleteDoc, updateDoc, s
 import PasswordConfirmModal from './PasswordConfirmModal';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
 import { setAccountCreationFlag } from "../../App";
+import { ClassPageSkeleton } from "../../components/SkeletonLoaders";
+import Toast from "../../components/Toast";
+import ConfirmDialog from "../../components/ConfirmDialog";
 
 export default function ViewClassPage() {
   const { classId } = useParams();
@@ -33,6 +36,13 @@ export default function ViewClassPage() {
   const [loadingAvailableQuizzes, setLoadingAvailableQuizzes] = useState(false);
   const [selectedQuizForAssignment, setSelectedQuizForAssignment] = useState(null);
 
+  // Custom Toast & Confirm Dialog state
+  const [toast, setToast] = useState({ show: false, type: "", title: "", message: "" });
+  const showToast = useCallback((type, title, message) => {
+    setToast({ show: true, type, title, message });
+  }, []);
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false });
+
   useEffect(() => {
     fetchClassData();
     fetchStudents();
@@ -52,12 +62,12 @@ export default function ViewClassPage() {
       if (classDoc.exists()) {
         setClassData({ id: classDoc.id, ...classDoc.data() });
       } else {
-        alert("Class not found!");
+        showToast("error", "Not Found", "Class not found!");
         navigate("/teacher/classes/add");
       }
     } catch (error) {
       console.error("Error fetching class:", error);
-      alert("Failed to fetch class data");
+      showToast("error", "Error", "Failed to fetch class data");
     } finally {
       setLoading(false);
     }
@@ -92,7 +102,7 @@ export default function ViewClassPage() {
       setStudents(studentsList);
     } catch (error) {
       console.error("Error fetching students:", error);
-      alert("Failed to fetch students");
+      showToast("error", "Error", "Failed to fetch students");
     } finally {
       setLoadingStudents(false);
     }
@@ -160,7 +170,7 @@ export default function ViewClassPage() {
       setAssignedQuizzes(assigned);
     } catch (e) {
       console.error(e);
-      alert("Error loading assigned quizzes.");
+      showToast("error", "Error", "Error loading assigned quizzes.");
     } finally {
       setLoadingAssigned(false);
     }
@@ -232,7 +242,7 @@ export default function ViewClassPage() {
       setSynchronousQuizzes(synchronous);
     } catch (e) {
       console.error(e);
-      alert("Error loading synchronous quizzes.");
+      showToast("error", "Error", "Error loading synchronous quizzes.");
     } finally {
       setLoadingSynchronous(false);
     }
@@ -263,7 +273,7 @@ export default function ViewClassPage() {
       setAvailableQuizzes(quizzes);
     } catch (e) {
       console.error(e);
-      alert("Error loading quizzes.");
+      showToast("error", "Error", "Error loading quizzes.");
     } finally {
       setLoadingAvailableQuizzes(false);
     }
@@ -282,47 +292,51 @@ export default function ViewClassPage() {
 
   const handleSelectQuizForAssignment = () => {
     if (!selectedQuizForAssignment) {
-      alert("Please select a quiz to assign");
+      showToast("warning", "No Quiz Selected", "Please select a quiz to assign");
       return;
     }
 
     navigate(`/teacher/assign-quiz-to-class/${selectedQuizForAssignment}/${classId}`);
   };
 
-  const handleDeleteAssignment = async (assignment, isSync = false) => {
-    const confirmMsg = `Are you sure you want to delete this assignment?\n\nQuiz: ${assignment.title}\nClass: ${assignment.className}\n\nThis will remove the quiz from all ${assignment.studentCount} students and delete all related data. This action cannot be undone.`;
-
-    if (!window.confirm(confirmMsg)) return;
-
-    setDeletingAssignment(`${assignment.quizId}-${assignment.classId}`);
-
-    try {
-      const deletePromises = assignment.docIds.map((docId) =>
-        deleteDoc(doc(db, "assignedQuizzes", docId))
-      );
-
-      await Promise.all(deletePromises);
-
-      if (isSync) {
-        await fetchSynchronousQuizzes();
-        alert("Live quiz assignment deleted successfully!");
-      } else {
-        await fetchAssignedQuizzes();
-        alert("Quiz assignment deleted successfully!");
-      }
-    } catch (e) {
-      console.error("Error deleting assignment:", e);
-      alert("Error deleting assignment. Please try again.");
-    } finally {
-      setDeletingAssignment(null);
-    }
+  const handleDeleteAssignment = (assignment, isSync = false) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: "Delete Assignment?",
+      message: `This will remove "${assignment.title}" from all ${assignment.studentCount} students and delete all related data. This action cannot be undone.`,
+      confirmLabel: "Delete",
+      color: "red",
+      onConfirm: async () => {
+        setConfirmDialog({ isOpen: false });
+        setDeletingAssignment(`${assignment.quizId}-${assignment.classId}`);
+        try {
+          const deletePromises = assignment.docIds.map((docId) =>
+            deleteDoc(doc(db, "assignedQuizzes", docId))
+          );
+          await Promise.all(deletePromises);
+          if (isSync) {
+            await fetchSynchronousQuizzes();
+            showToast("success", "Deleted!", "Live quiz assignment deleted successfully!");
+          } else {
+            await fetchAssignedQuizzes();
+            showToast("success", "Deleted!", "Quiz assignment deleted successfully!");
+          }
+        } catch (e) {
+          console.error("Error deleting assignment:", e);
+          showToast("error", "Delete Failed", "Error deleting assignment. Please try again.");
+        } finally {
+          setDeletingAssignment(null);
+        }
+      },
+      onCancel: () => setConfirmDialog({ isOpen: false }),
+    });
   };
 
   const handleCreateAccountForAll = async () => {
     const studentsWithoutAccounts = students.filter(s => !s.hasAccount);
 
     if (studentsWithoutAccounts.length === 0) {
-      alert("All students already have accounts!");
+      showToast("info", "All Done", "All students already have accounts!");
       return;
     }
 
@@ -334,7 +348,7 @@ export default function ViewClassPage() {
 
     const currentUser = auth.currentUser;
     if (!currentUser || !currentUser.email) {
-      alert("❌ Please log in first!");
+      showToast("error", "Authentication Required", "Please log in first!");
       return;
     }
 
@@ -346,7 +360,7 @@ export default function ViewClassPage() {
       const passwordValidation = await validateTeacherPassword(currentUser.email, adminPassword);
 
       if (!passwordValidation.valid) {
-        alert("❌ Invalid password! Account creation cancelled.\n\nPlease try again with the correct password.");
+        showToast("error", "Invalid Password", "Account creation cancelled. Please try again with the correct password.");
         setAccountCreationProgress("");
         setAccountCreationFlag(false);
         return;
@@ -425,40 +439,21 @@ export default function ViewClassPage() {
 
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      let message = `✅ Account Creation Complete!\n\n`;
-      message += `✅ New accounts: ${successCount}\n`;
-      message += `⚠️ Already had accounts: ${existingCount}\n`;
+      let summaryParts = [`New accounts: ${successCount}`, `Already had accounts: ${existingCount}`];
+      if (errorCount > 0) summaryParts.push(`Failed: ${errorCount}`);
+      if (successCount > 0) summaryParts.push("Password: LASTNAME + STUDENT NUMBER");
 
-      if (successCount > 0) {
-        message += `\n📧 Email: From Classlist`;
-        message += `\n🔑 Password: LASTNAME + STUDENT NUMBER`;
-        message += `\n   Example: DELACRUZ2225 (for student 221-2225)`;
-      }
-
-      if (existingCount > 0) {
-        message += `\n\n⚠️ Already existing:\n${skippedStudents.slice(0, 5).join('\n')}`;
-        if (skippedStudents.length > 5) {
-          message += `\n... and ${skippedStudents.length - 5} more`;
-        }
-      }
-
-      if (errorCount > 0) {
-        message += `\n\n❌ Failed: ${errorCount} student(s)`;
-        if (errors.length > 0) {
-          message += `\n${errors.slice(0, 3).join('\n')}`;
-          if (errors.length > 3) {
-            message += `\n... and ${errors.length - 3} more`;
-          }
-        }
-      }
-
-      alert(message);
+      showToast(
+        errorCount > 0 ? "warning" : "success",
+        "Account Creation Complete!",
+        summaryParts.join(" • ")
+      );
 
       await fetchStudents();
 
     } catch (error) {
       console.error("❌ Error creating accounts:", error);
-      alert("❌ Failed to create accounts: " + error.message);
+      showToast("error", "Account Creation Failed", error.message);
     } finally {
       setCreatingAccounts(false);
       setAccountCreationProgress("");
@@ -602,94 +597,89 @@ export default function ViewClassPage() {
     }
   };
 
-  const handleRemoveClass = async () => {
-    if (!window.confirm("Are you sure you want to archive this class? Students will be removed from this class but their records will remain.")) {
-      return;
-    }
+  const handleRemoveClass = () => {
+    setConfirmDialog({
+      isOpen: true,
+      title: "Archive This Class?",
+      message: "Students will be removed from this class but their records will remain. This can be undone from the Archived Classes page.",
+      confirmLabel: "Archive",
+      color: "orange",
+      onConfirm: async () => {
+        setConfirmDialog({ isOpen: false });
+        try {
+          const q = query(
+            collection(db, "users"),
+            where("role", "==", "student"),
+            where("classIds", "array-contains", classId)
+          );
 
-    try {
-      // Step 1: Get all students enrolled in this class BEFORE archiving
-      const q = query(
-        collection(db, "users"),
-        where("role", "==", "student"),
-        where("classIds", "array-contains", classId)
-      );
+          const querySnapshot = await getDocs(q);
+          const enrolledStudents = [];
+          const updatePromises = [];
 
-      const querySnapshot = await getDocs(q);
-      const enrolledStudents = [];
-      const updatePromises = [];
+          querySnapshot.forEach((docSnapshot) => {
+            const student = docSnapshot.data();
+            const studentInfo = {
+              id: docSnapshot.id,
+              name: student.name,
+              email: student.emailAddress,
+              studentNo: student.studentNo,
+              program: student.program,
+              enrolledDate: student.enrollmentDate || new Date(),
+            };
+            enrolledStudents.push(studentInfo);
 
-      querySnapshot.forEach((docSnapshot) => {
-        const student = docSnapshot.data();
-        const studentInfo = {
-          id: docSnapshot.id,
-          name: student.name,
-          email: student.emailAddress,
-          studentNo: student.studentNo,
-          program: student.program,
-          enrolledDate: student.enrollmentDate || new Date(),
-        };
-        enrolledStudents.push(studentInfo);
+            const updatedClassIds = student.classIds.filter(id => id !== classId);
+            updatePromises.push(
+              updateDoc(doc(db, "users", docSnapshot.id), {
+                classIds: updatedClassIds
+              })
+            );
+          });
 
-        // Remove classId from students
-        const updatedClassIds = student.classIds.filter(id => id !== classId);
-        updatePromises.push(
-          updateDoc(doc(db, "users", docSnapshot.id), {
-            classIds: updatedClassIds
-          })
-        );
-      });
+          await Promise.all(updatePromises);
+          console.log(`Removed class ${classId} from ${enrolledStudents.length} students`);
 
-      await Promise.all(updatePromises);
-      console.log(`Removed class ${classId} from ${enrolledStudents.length} students`);
-
-      // Step 2: Get the class data before archiving
-      const classDoc = await getDoc(doc(db, "classes", classId));
-      if (classDoc.exists()) {
-        const classDataToArchive = classDoc.data();
-
-        // Step 3: Save to archivedClasses collection WITH student list
-        const archivedData = {
-          ...classDataToArchive,
-          originalClassId: classId,
-          archivedAt: new Date(),
-          archivedBy: auth.currentUser.uid,
-          status: "archived",
-          studentSnapshot: {
-            count: enrolledStudents.length,
-            students: enrolledStudents, // Store all enrolled students
-            snapshotDate: new Date(),
+          const classDoc = await getDoc(doc(db, "classes", classId));
+          if (classDoc.exists()) {
+            const classDataToArchive = classDoc.data();
+            const archivedData = {
+              ...classDataToArchive,
+              originalClassId: classId,
+              archivedAt: new Date(),
+              archivedBy: auth.currentUser.uid,
+              status: "archived",
+              studentSnapshot: {
+                count: enrolledStudents.length,
+                students: enrolledStudents,
+                snapshotDate: new Date(),
+              }
+            };
+            await setDoc(doc(db, "archivedClasses", classId), archivedData);
+            console.log(`Class moved to archivedClasses with ${enrolledStudents.length} students`);
           }
-        };
 
-        await setDoc(doc(db, "archivedClasses", classId), archivedData);
-        console.log(`Class moved to archivedClasses with ${enrolledStudents.length} students`);
-      }
+          await deleteDoc(doc(db, "classes", classId));
+          console.log(`Deleted class ${classId} from active classes`);
 
-      // Step 4: Delete from active classes collection
-      await deleteDoc(doc(db, "classes", classId));
-      console.log(`Deleted class ${classId} from active classes`);
+          showToast("success", "Class Archived!", "Class archived successfully with student records preserved!");
 
-      alert("✅ Class archived successfully with student records preserved!");
+          console.log("📢 Dispatching events for realtime sidebar update...");
+          window.dispatchEvent(new Event('classArchived'));
+          window.dispatchEvent(new Event('classesUpdated'));
 
-      console.log("📢 Dispatching events for realtime sidebar update...");
-      window.dispatchEvent(new Event('classArchived'));
-      window.dispatchEvent(new Event('classesUpdated'));
-
-      navigate("/teacher/classes/add");
-    } catch (error) {
-      console.error("Error archiving class:", error);
-      alert("❌ Failed to archive class: " + error.message);
-    }
+          navigate("/teacher/classes/add");
+        } catch (error) {
+          console.error("Error archiving class:", error);
+          showToast("error", "Archive Failed", "Failed to archive class: " + error.message);
+        }
+      },
+      onCancel: () => setConfirmDialog({ isOpen: false }),
+    });
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen font-Outfit">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-        <span className="ml-3 text-subtext">Loading class...</span>
-      </div>
-    );
+    return <ClassPageSkeleton />;
   }
 
   if (!classData) {
@@ -1263,6 +1253,8 @@ export default function ViewClassPage() {
         </div>,
         document.body
       )}
+      <Toast {...toast} onClose={() => setToast(prev => ({ ...prev, show: false }))} />
+      <ConfirmDialog {...confirmDialog} />
     </div>
   );
 }

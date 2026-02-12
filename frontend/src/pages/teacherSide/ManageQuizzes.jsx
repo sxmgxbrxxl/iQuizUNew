@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPortal } from "react-dom";
 import {
@@ -32,6 +32,8 @@ import {
   getDoc,
 } from "firebase/firestore";
 import { db, auth } from "../../firebase/firebaseConfig";
+import Toast from "../../components/Toast";
+import ConfirmDialog from "../../components/ConfirmDialog";
 
 
 const ITEMS_PER_PAGE = 6;
@@ -61,6 +63,13 @@ export default function ManageQuizzes() {
   const [selectedAsyncQuiz, setSelectedAsyncQuiz] = useState(null);
   const [deletingAssignment, setDeletingAssignment] = useState(null);
   const [mounted, setMounted] = useState(false);
+
+  // Custom Toast & Confirm Dialog state
+  const [toast, setToast] = useState({ show: false, type: "", title: "", message: "" });
+  const showToast = useCallback((type, title, message) => {
+    setToast({ show: true, type, title, message });
+  }, []);
+  const [confirmDialogState, setConfirmDialogState] = useState({ isOpen: false });
 
   // Classification Filter State
   const [classificationFilter, setClassificationFilter] = useState("ALL");
@@ -131,7 +140,7 @@ export default function ManageQuizzes() {
       setPublishedQuizzes(quizzes);
     } catch (e) {
       console.error(e);
-      alert("Error loading quizzes.");
+      showToast("error", "Error", "Error loading quizzes.");
     } finally {
       setLoadingQuizzes(false);
     }
@@ -142,44 +151,51 @@ export default function ManageQuizzes() {
   // -----------------------------------------------------------------
   const [deletingQuiz, setDeletingQuiz] = useState(null);
 
-  const handleDeleteQuiz = async (quizId, quizTitle) => {
-    const confirmMsg = `Are you sure you want to archive "${quizTitle}"?\n\nThis will move the quiz to your archives.\n\nNote: Assigned quizzes can still be accessed by students.`;
+  const handleDeleteQuiz = (quizId, quizTitle) => {
+    setConfirmDialogState({
+      isOpen: true,
+      title: "Archive Quiz?",
+      message: `Are you sure you want to archive "${quizTitle}"?\n\nThis will move the quiz to your archives.\n\nNote: Assigned quizzes can still be accessed by students.`,
+      confirmLabel: "Archive",
+      color: "red",
+      onConfirm: async () => {
+        setConfirmDialogState({ isOpen: false });
+        setDeletingQuiz(quizId);
 
-    if (!window.confirm(confirmMsg)) return;
+        try {
+          // Get quiz data before archiving
+          const quizDoc = await getDoc(doc(db, "quizzes", quizId));
 
-    setDeletingQuiz(quizId);
+          if (quizDoc.exists()) {
+            const quizData = quizDoc.data();
 
-    try {
-      // Get quiz data before archiving
-      const quizDoc = await getDoc(doc(db, "quizzes", quizId));
+            // Save to archivedQuizzes with metadata
+            const archivedData = {
+              ...quizData,
+              originalQuizId: quizId,
+              archivedAt: new Date(),
+              archivedBy: auth.currentUser.uid,
+              status: "archived"
+            };
 
-      if (quizDoc.exists()) {
-        const quizData = quizDoc.data();
+            await setDoc(doc(db, "archivedQuizzes", quizId), archivedData);
+            console.log(`Quiz archived: ${quizId}`);
+          }
 
-        // Save to archivedQuizzes with metadata
-        const archivedData = {
-          ...quizData,
-          originalQuizId: quizId,
-          archivedAt: new Date(),
-          archivedBy: auth.currentUser.uid,
-          status: "archived"
-        };
+          // Delete from active quizzes
+          await deleteDoc(doc(db, "quizzes", quizId));
 
-        await setDoc(doc(db, "archivedQuizzes", quizId), archivedData);
-        console.log(`Quiz archived: ${quizId}`);
-      }
-
-      // Delete from active quizzes
-      await deleteDoc(doc(db, "quizzes", quizId));
-
-      await fetchQuizzes();
-      alert("✅ Quiz archived successfully!");
-    } catch (e) {
-      console.error("Error archiving quiz:", e);
-      alert("❌ Error archiving quiz. Please try again.");
-    } finally {
-      setDeletingQuiz(null);
-    }
+          await fetchQuizzes();
+          showToast("success", "Archived!", "Quiz archived successfully!");
+        } catch (e) {
+          console.error("Error archiving quiz:", e);
+          showToast("error", "Error", "Error archiving quiz. Please try again.");
+        } finally {
+          setDeletingQuiz(null);
+        }
+      },
+      onCancel: () => setConfirmDialogState({ isOpen: false }),
+    });
   };
 
   // -----------------------------------------------------------------
@@ -246,7 +262,7 @@ export default function ManageQuizzes() {
       setAssignedQuizzes(assigned);
     } catch (e) {
       console.error(e);
-      alert("Error loading assigned quizzes.");
+      showToast("error", "Error", "Error loading assigned quizzes.");
     } finally {
       setLoadingAssigned(false);
     }
@@ -320,7 +336,7 @@ export default function ManageQuizzes() {
       setSynchronousQuizzes(synchronous);
     } catch (e) {
       console.error(e);
-      alert("Error loading synchronous quizzes.");
+      showToast("error", "Error", "Error loading synchronous quizzes.");
     } finally {
       setLoadingSynchronous(false);
     }
@@ -329,33 +345,40 @@ export default function ManageQuizzes() {
   // -----------------------------------------------------------------
   // DELETE ASSIGNMENT
   // -----------------------------------------------------------------
-  const handleDeleteAssignment = async (assignment, isSync = false) => {
-    const confirmMsg = `Are you sure you want to delete this assignment?\n\nQuiz: ${assignment.title}\nClass: ${assignment.className}\n\nThis will remove the quiz from all ${assignment.studentCount} students and delete all related data. This action cannot be undone.`;
+  const handleDeleteAssignment = (assignment, isSync = false) => {
+    setConfirmDialogState({
+      isOpen: true,
+      title: "Delete Assignment?",
+      message: `Are you sure you want to delete this assignment?\n\nQuiz: ${assignment.title}\nClass: ${assignment.className}\n\nThis will remove the quiz from all ${assignment.studentCount} students and delete all related data. This action cannot be undone.`,
+      confirmLabel: "Delete",
+      color: "red",
+      onConfirm: async () => {
+        setConfirmDialogState({ isOpen: false });
+        setDeletingAssignment(`${assignment.quizId}-${assignment.classId}`);
 
-    if (!window.confirm(confirmMsg)) return;
+        try {
+          const deletePromises = assignment.docIds.map((docId) =>
+            deleteDoc(doc(db, "assignedQuizzes", docId))
+          );
 
-    setDeletingAssignment(`${assignment.quizId}-${assignment.classId}`);
+          await Promise.all(deletePromises);
 
-    try {
-      const deletePromises = assignment.docIds.map((docId) =>
-        deleteDoc(doc(db, "assignedQuizzes", docId))
-      );
-
-      await Promise.all(deletePromises);
-
-      if (isSync) {
-        await fetchSynchronousQuizzes();
-        alert("Live quiz assignment deleted successfully!");
-      } else {
-        await fetchAssignedQuizzes();
-        alert("Quiz assignment deleted successfully!");
-      }
-    } catch (e) {
-      console.error("Error deleting assignment:", e);
-      alert("Error deleting assignment. Please try again.");
-    } finally {
-      setDeletingAssignment(null);
-    }
+          if (isSync) {
+            await fetchSynchronousQuizzes();
+            showToast("success", "Deleted!", "Live quiz assignment deleted successfully!");
+          } else {
+            await fetchAssignedQuizzes();
+            showToast("success", "Deleted!", "Quiz assignment deleted successfully!");
+          }
+        } catch (e) {
+          console.error("Error deleting assignment:", e);
+          showToast("error", "Error", "Error deleting assignment. Please try again.");
+        } finally {
+          setDeletingAssignment(null);
+        }
+      },
+      onCancel: () => setConfirmDialogState({ isOpen: false }),
+    });
   };
 
   // -----------------------------------------------------------------
@@ -422,19 +445,28 @@ export default function ManageQuizzes() {
   };
 
   const deleteManualQuestion = (index) => {
-    if (window.confirm("Delete this question?")) {
-      setManualQuestions(manualQuestions.filter((_, i) => i !== index));
-    }
+    setConfirmDialogState({
+      isOpen: true,
+      title: "Delete Question?",
+      message: "Are you sure you want to delete this question?",
+      confirmLabel: "Delete",
+      color: "red",
+      onConfirm: () => {
+        setManualQuestions(manualQuestions.filter((_, i) => i !== index));
+        setConfirmDialogState({ isOpen: false });
+      },
+      onCancel: () => setConfirmDialogState({ isOpen: false }),
+    });
   };
 
   const handleCreateManualQuiz = () => {
     if (!manualQuizTitle.trim()) {
-      alert("Please enter a quiz title");
+      showToast("warning", "Missing Title", "Please enter a quiz title");
       return;
     }
 
     if (manualQuestions.length === 0) {
-      alert("Please add at least one question");
+      showToast("warning", "Empty Quiz", "Please add at least one question");
       return;
     }
 
@@ -443,21 +475,21 @@ export default function ManageQuizzes() {
       const q = manualQuestions[i];
 
       if (!q.question.trim()) {
-        alert(`Question ${i + 1} is empty`);
+        showToast("warning", "Incomplete Question", `Question ${i + 1} is empty`);
         return;
       }
 
       if (q.type === "multiple_choice") {
         if (!q.choices.some(c => c.text.trim())) {
-          alert(`Question ${i + 1}: Please add at least one choice`);
+          showToast("warning", "Incomplete Choices", `Question ${i + 1}: Please add at least one choice`);
           return;
         }
         if (!q.choices.some(c => c.is_correct)) {
-          alert(`Question ${i + 1}: Please mark the correct answer`);
+          showToast("warning", "Missing Answer", `Question ${i + 1}: Please mark the correct answer`);
           return;
         }
       } else if (!q.correct_answer.trim()) {
-        alert(`Question ${i + 1}: Please provide the correct answer`);
+        showToast("warning", "Missing Answer", `Question ${i + 1}: Please provide the correct answer`);
         return;
       }
     }
@@ -490,11 +522,11 @@ export default function ManageQuizzes() {
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
     if (file && file.type === "application/pdf") setSelectedFile(file);
-    else alert("Please select a PDF file");
+    else showToast("error", "Invalid File", "Please select a PDF file");
   };
 
   const handleGenerateQuiz = async () => {
-    if (!selectedFile) return alert("Please select a PDF file");
+    if (!selectedFile) return showToast("warning", "Missing File", "Please select a PDF file");
     setLoading(true);
     const fd = new FormData();
     fd.append("file", selectedFile);
@@ -516,10 +548,10 @@ export default function ManageQuizzes() {
         setGeneratedQuiz(data.quiz);
         setShowPdfModal(false);
         setShowPreviewModal(true);
-      } else alert("Failed: " + data.message);
+      } else showToast("error", "Generation Failed", data.message);
     } catch (e) {
       console.error(e);
-      alert("Generation error – check backend.");
+      showToast("error", "Error", "Generation error – check backend.");
     } finally {
       setLoading(false);
     }
@@ -570,16 +602,16 @@ export default function ManageQuizzes() {
   };
 
   const handleQuestionSave = (idx) => {
-    if (!editForm.question.trim()) return alert("Question cannot be empty");
+    if (!editForm.question.trim()) return showToast("warning", "Validation", "Question cannot be empty");
     if (editForm.type === "multiple_choice") {
       if (!editForm.choices || editForm.choices.length < 2)
-        return alert("Need at least 2 choices");
+        return showToast("warning", "Validation", "Need at least 2 choices");
       if (!editForm.choices.some((c) => c.is_correct))
-        return alert("Mark one correct choice");
+        return showToast("warning", "Validation", "Mark one correct choice");
       if (editForm.choices.some((c) => !c.text.trim()))
-        return alert("All choices need text");
+        return showToast("warning", "Validation", "All choices need text");
     } else if (!editForm.correct_answer.trim())
-      return alert("Correct answer required");
+      return showToast("warning", "Validation", "Correct answer required");
 
     const updated = [...generatedQuiz.questions];
     updated[idx] = {
@@ -638,13 +670,22 @@ export default function ManageQuizzes() {
   };
 
   const handleDeleteQuestion = (idx) => {
-    if (window.confirm("Delete this question?")) {
-      setGeneratedQuiz({
-        ...generatedQuiz,
-        questions: generatedQuiz.questions.filter((_, i) => i !== idx),
-      });
-      setEditingQuestion(null);
-    }
+    setConfirmDialogState({
+      isOpen: true,
+      title: "Delete Question?",
+      message: "Are you sure you want to delete this question?",
+      confirmLabel: "Delete",
+      color: "red",
+      onConfirm: () => {
+        setGeneratedQuiz({
+          ...generatedQuiz,
+          questions: generatedQuiz.questions.filter((_, i) => i !== idx),
+        });
+        setEditingQuestion(null);
+        setConfirmDialogState({ isOpen: false });
+      },
+      onCancel: () => setConfirmDialogState({ isOpen: false }),
+    });
   };
 
   const groupQuestionsByType = (questions) => {
@@ -666,7 +707,7 @@ export default function ManageQuizzes() {
   const handleSaveQuiz = async () => {
     if (!generatedQuiz) return;
     const user = auth.currentUser;
-    if (!user) return alert("Please log in first!");
+    if (!user) return showToast("error", "Auth Required", "Please log in first!");
 
     setPublishing(true);
     try {
@@ -716,10 +757,14 @@ export default function ManageQuizzes() {
       setShowPreviewModal(false);
       setGeneratedQuiz(null);
       await fetchQuizzes();
-      alert("Quiz published successfully!");
+      await addDoc(collection(db, "quizzes"), quizData);
+      setShowPreviewModal(false);
+      setGeneratedQuiz(null);
+      await fetchQuizzes();
+      showToast("success", "Published!", "Quiz published successfully!");
     } catch (e) {
       console.error(e);
-      alert("Publish error.");
+      showToast("error", "Error", "Publish error.");
     } finally {
       setPublishing(false);
     }
@@ -2230,47 +2275,56 @@ export default function ManageQuizzes() {
                   Cancel
                 </button>
                 <button
-                  onClick={async () => {
-                    if (!window.confirm("Regenerate quiz? This will replace the current quiz with a new one.")) return;
-
-                    if (!selectedFile) {
-                      alert("No PDF file found. Please upload again.");
-                      setShowPreviewModal(false);
-                      setShowPdfModal(true);
-                      return;
-                    }
-
-                    setLoading(true);
-                    const fd = new FormData();
-                    fd.append("file", selectedFile);
-                    fd.append("num_multiple_choice", numMC);
-                    fd.append("num_true_false", numTF);
-                    fd.append("num_identification", numID);
-                    fd.append("title", generatedQuiz.title || "Generated Quiz");
-
-                    try {
-                      const res = await fetch(
-                        "https://iquizu-backend-production.up.railway.app/api/quiz/generate-from-pdf",
-                        {
-                          method: "POST",
-                          body: fd,
+                  onClick={() => {
+                    setConfirmDialogState({
+                      isOpen: true,
+                      title: "Regenerate Quiz?",
+                      message: "Regenerate quiz? This will replace the current quiz with a new one.",
+                      confirmLabel: "Regenerate",
+                      color: "orange",
+                      onConfirm: async () => {
+                        setConfirmDialogState({ isOpen: false });
+                        if (!selectedFile) {
+                          showToast("warning", "Missing File", "No PDF file found. Please upload again.");
+                          setShowPreviewModal(false);
+                          setShowPdfModal(true);
+                          return;
                         }
-                      );
-                      const data = await res.json();
-                      if (data.success) {
-                        setGeneratedQuiz(data.quiz);
-                        setEditingQuestion(null);
-                        setClassificationFilter("ALL");
-                        alert("✅ Quiz regenerated successfully!");
-                      } else {
-                        alert("Failed: " + data.message);
-                      }
-                    } catch (e) {
-                      console.error(e);
-                      alert("Generation error – check backend.");
-                    } finally {
-                      setLoading(false);
-                    }
+
+                        setLoading(true);
+                        const fd = new FormData();
+                        fd.append("file", selectedFile);
+                        fd.append("num_multiple_choice", numMC);
+                        fd.append("num_true_false", numTF);
+                        fd.append("num_identification", numID);
+                        fd.append("title", generatedQuiz.title || "Generated Quiz");
+
+                        try {
+                          const res = await fetch(
+                            "https://iquizu-backend-production.up.railway.app/api/quiz/generate-from-pdf",
+                            {
+                              method: "POST",
+                              body: fd,
+                            }
+                          );
+                          const data = await res.json();
+                          if (data.success) {
+                            setGeneratedQuiz(data.quiz);
+                            setEditingQuestion(null);
+                            setClassificationFilter("ALL");
+                            showToast("success", "Regenerated!", "Quiz regenerated successfully!");
+                          } else {
+                            showToast("error", "Failed", data.message);
+                          }
+                        } catch (e) {
+                          console.error(e);
+                          showToast("error", "Error", "Generation error – check backend.");
+                        } finally {
+                          setLoading(false);
+                        }
+                      },
+                      onCancel: () => setConfirmDialogState({ isOpen: false }),
+                    });
                   }}
                   disabled={loading}
                   className="px-6 py-3 bg-orange-600 text-white font-semibold rounded-lg hover:bg-orange-700 transition flex items-center justify-center gap-2 disabled:bg-gray-400"
@@ -2310,6 +2364,8 @@ export default function ManageQuizzes() {
           document.body
         )
       }
+      <Toast {...toast} onClose={() => setToast(prev => ({ ...prev, show: false }))} />
+      <ConfirmDialog {...confirmDialogState} />
     </div >
   );
 }

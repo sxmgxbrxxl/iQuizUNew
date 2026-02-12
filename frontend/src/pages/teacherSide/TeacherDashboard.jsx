@@ -151,7 +151,7 @@ export default function TeacherDashboard({ user, userDoc }) {
                       <p className="text-sm font-medium text-gray-400 uppercase tracking-wider">Total Classes</p>
                       <h2 className="text-4xl font-extrabold text-gray-800 mt-2">
                         {loadingClasses ? (
-                          <span className="inline-block w-10 h-8 bg-gray-100 rounded-lg animate-pulse"></span>
+                          <span className="inline-block w-14 h-10 bg-gray-200 rounded-lg animate-pulse"></span>
                         ) : totalClasses}
                       </h2>
                       <p className="text-sm text-gray-400 mt-1">Active classes</p>
@@ -170,7 +170,7 @@ export default function TeacherDashboard({ user, userDoc }) {
                       <p className="text-sm font-medium text-gray-400 uppercase tracking-wider">Total Quizzes</p>
                       <h2 className="text-4xl font-extrabold text-gray-800 mt-2">
                         {loadingQuizzes ? (
-                          <span className="inline-block w-10 h-8 bg-gray-100 rounded-lg animate-pulse"></span>
+                          <span className="inline-block w-14 h-10 bg-gray-200 rounded-lg animate-pulse"></span>
                         ) : totalQuizzes}
                       </h2>
                       <p className="text-sm text-gray-400 mt-1">Created quizzes</p>
@@ -189,7 +189,7 @@ export default function TeacherDashboard({ user, userDoc }) {
                       <p className="text-sm font-medium text-gray-400 uppercase tracking-wider">Total Students</p>
                       <h2 className="text-4xl font-extrabold text-gray-800 mt-2">
                         {loadingStudents ? (
-                          <span className="inline-block w-10 h-8 bg-gray-100 rounded-lg animate-pulse"></span>
+                          <span className="inline-block w-14 h-10 bg-gray-200 rounded-lg animate-pulse"></span>
                         ) : totalStudents}
                       </h2>
                       <p className="text-sm text-gray-400 mt-1">Enrolled students</p>

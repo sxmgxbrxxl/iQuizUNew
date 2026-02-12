@@ -5,6 +5,8 @@ import { sendPasswordResetEmail } from "firebase/auth";
 import { doc, updateDoc, getDoc } from "firebase/firestore";
 import { auth, db } from "../../firebase/firebaseConfig";
 
+import { ProfileSkeleton } from "../../components/SkeletonLoaders";
+
 // ─── Custom Toast Notification ───────────────────────────────────────────────
 function Toast({ toast, onClose }) {
     useEffect(() => {
@@ -233,12 +235,7 @@ export default function TeacherProfile({ user, userDoc }) {
     };
 
     if (loading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center font-Outfit">
-                <Loader2 className="w-8 h-8 animate-spin text-accent" />
-                <span className="ml-3 text-subtext">Loading…</span>
-            </div>
-        );
+        return <ProfileSkeleton />;
     }
 
     return (
