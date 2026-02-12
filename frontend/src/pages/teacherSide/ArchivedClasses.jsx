@@ -170,10 +170,49 @@ export default function ArchivedClasses({ user }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="flex flex-row gap-3 justify-center items-center">
-          <Loader2 className="w-8 h-8 text-blue-600 mx-auto animate-spin" />
-          <p className="text-subtext">Loading archived classes...</p>
+      <div className="py-6 px-2 md:p-8 font-Outfit animate-fadeIn">
+        <div className="max-w-7xl mx-auto">
+          {/* Header */}
+          <div className="mb-8">
+            <div className="flex items-center gap-3 mb-2">
+              <Archive className="w-8 h-8 text-blue-600" />
+              <h1 className="text-3xl font-bold text-gray-800">Archived Classes</h1>
+            </div>
+            <p className="text-gray-600">
+              Manage your archived classes. You can restore or permanently delete them.
+            </p>
+          </div>
+
+          {/* Skeleton Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="bg-white rounded-2xl shadow-md overflow-hidden border border-gray-100">
+                {/* Skeleton gradient header */}
+                <div className="bg-gradient-to-r from-gray-200 to-gray-300 p-4 animate-pulse">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-5 h-5 bg-white/30 rounded" />
+                    <div className="h-5 bg-white/30 rounded-lg flex-1" />
+                  </div>
+                  <div className="h-4 bg-white/30 rounded-lg w-1/2" />
+                </div>
+                {/* Skeleton body */}
+                <div className="p-4 space-y-3 animate-pulse">
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 bg-gray-200 rounded" />
+                    <div className="h-4 bg-gray-200 rounded-lg w-24" />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 bg-gray-200 rounded" />
+                    <div className="h-4 bg-gray-200 rounded-lg w-36" />
+                  </div>
+                  <div className="pt-3 border-t border-gray-100 flex gap-2">
+                    <div className="flex-1 h-10 bg-gray-200 rounded-xl" />
+                    <div className="w-12 h-10 bg-gray-200 rounded-xl" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );

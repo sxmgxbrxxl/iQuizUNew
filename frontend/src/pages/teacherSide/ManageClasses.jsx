@@ -139,7 +139,7 @@ export default function ManageClasses() {
   const [isLimitReached, setIsLimitReached] = useState(false);
   const [mounted, setMounted] = useState(false);
   const navigate = useNavigate();
-  
+
   const authRef = useRef(null);
   const MAX_CLASSES = 8;
 
@@ -166,12 +166,12 @@ export default function ManageClasses() {
       );
       const querySnapshot = await getDocs(q);
       const count = querySnapshot.size;
-      
+
       // Log class IDs for debugging
       const classIds = querySnapshot.docs.map(doc => doc.id);
       console.log(`Teacher has ${count}/${MAX_CLASSES} classes`);
       console.log("Class IDs:", classIds);
-      
+
       // Log class details to identify incomplete classes
       if (count > 0) {
         querySnapshot.docs.forEach(doc => {
@@ -184,7 +184,7 @@ export default function ManageClasses() {
           });
         });
       }
-      
+
       setClassCount(count);
       setIsLimitReached(count >= MAX_CLASSES);
     } catch (error) {
@@ -202,19 +202,19 @@ export default function ManageClasses() {
         collection(db, "users"),
         where("emailAddress", "==", emailAddress.toLowerCase().trim())
       );
-      
+
       const querySnapshot = await getDocs(q);
-      
+
       if (!querySnapshot.empty && querySnapshot.docs && querySnapshot.docs.length > 0) {
         const existingDoc = querySnapshot.docs[0];
         const docData = existingDoc.data();
-        
+
         // Verify document has required data
         if (!docData) {
           console.warn("Empty document data for:", emailAddress);
           return null;
         }
-        
+
         return {
           id: existingDoc.id,
           name: docData.name || "",
@@ -223,7 +223,7 @@ export default function ManageClasses() {
           authUID: docData.authUID || null
         };
       }
-      
+
       return null;
     } catch (error) {
       console.error("Error checking student by email:", error);
@@ -237,7 +237,7 @@ export default function ManageClasses() {
       Object.keys(row).forEach(key => {
         const trimmedKey = key.trim().replace(/\s+/g, ' ');
         const lowerKey = trimmedKey.toLowerCase();
-        
+
         if (lowerKey === "no" || lowerKey === "no.") {
           normalized["No"] = row[key];
         } else if (lowerKey === "student no." || lowerKey === "student no" || lowerKey === "student number") {
@@ -274,30 +274,30 @@ export default function ManageClasses() {
 
       // Convert row to string for searching
       const rowStr = Array.isArray(row) ? row.join('|').toLowerCase() : '';
-      
+
       // Look for Class No
       if (rowStr.includes('class no')) {
-        const classNoIndex = row.findIndex(cell => 
+        const classNoIndex = row.findIndex(cell =>
           cell && cell.toString().toLowerCase().includes('class no')
         );
         if (classNoIndex !== -1 && row[classNoIndex + 1]) {
           classNo = row[classNoIndex + 1].toString().trim();
         }
       }
-      
+
       // Look for Code
       if (rowStr.includes('code:') || (rowStr.includes('code') && !rowStr.includes('postal'))) {
-        const codeIndex = row.findIndex(cell => 
+        const codeIndex = row.findIndex(cell =>
           cell && cell.toString().toLowerCase() === 'code:'
         );
         if (codeIndex !== -1 && row[codeIndex + 1]) {
           code = row[codeIndex + 1].toString().trim();
         }
       }
-      
+
       // Look for Description
       if (rowStr.includes('description')) {
-        const descIndex = row.findIndex(cell => 
+        const descIndex = row.findIndex(cell =>
           cell && cell.toString().toLowerCase().includes('description')
         );
         if (descIndex !== -1 && row[descIndex + 1]) {
@@ -310,7 +310,7 @@ export default function ManageClasses() {
     return { classNo, code, description };
   };
 
-    const checkClassNoExists = async (classNo) => {
+  const checkClassNoExists = async (classNo) => {
     if (!classNo || classNo.trim() === "") {
       return false;
     }
@@ -324,7 +324,7 @@ export default function ManageClasses() {
         where("teacherId", "==", user.uid),
         where("classNo", "==", classNo.trim())
       );
-      
+
       const querySnapshot = await getDocs(q);
       return !querySnapshot.empty;
     } catch (error) {
@@ -334,63 +334,63 @@ export default function ManageClasses() {
   };
 
   const processStudentData = async (students, headers, file, allData = []) => {
-  console.log("Parsed data:", students);
-  console.log("Total rows:", students.length);
-  
-  const user = auth.currentUser;
-  if (!user) {
-    alert("❌ Please log in first!");
-    return;
-  }
+    console.log("Parsed data:", students);
+    console.log("Total rows:", students.length);
 
-  if (isLimitReached) {
-    alert(`❌ Class Limit Reached!\n\nYou have reached the maximum limit of ${MAX_CLASSES} classes.\n\nPlease delete an existing class before adding a new one.`);
-    return;
-  }
-
-  const normalizedStudents = normalizeHeaders(students);
-  
-  const requiredHeaders = ["Student No.", "Name"];
-  const firstRow = normalizedStudents[0] || {};
-  const availableHeaders = Object.keys(firstRow);
-  
-  const missingHeaders = requiredHeaders.filter(h => !availableHeaders.includes(h));
-  
-  if (missingHeaders.length > 0) {
-    alert(`❌ Missing columns: ${missingHeaders.join(", ")}\n\nAvailable columns: ${availableHeaders.join(", ")}\n\nPlease check your file format.`);
-    return;
-  }
-
-  const validStudents = normalizedStudents.filter(s => 
-    s["Student No."] && s["Name"]
-  );
-
-  if (validStudents.length === 0) {
-    alert("❌ No valid student data found in file");
-    return;
-  }
-
-  const classInfo = extractClassInfo(allData);
-
-  if (classInfo.classNo && classInfo.classNo.trim() !== "") {
-    setUploadProgress("Validating class information...");
-    const classNoExists = await checkClassNoExists(classInfo.classNo);
-    if (classNoExists) {
-      alert(`❌ Duplicate Class No. Detected!\n\nClass No. "${classInfo.classNo}" already exists in your classes.\n\nEach class must have a unique Class No.`);
-      setFileName("");
-      setUploadProgress("");
+    const user = auth.currentUser;
+    if (!user) {
+      alert("❌ Please log in first!");
       return;
     }
-    setUploadProgress("");
-  }
 
-  setPendingUploadData({
-    validStudents,
-    file,
-    classInfo
-  });
-  setShowConfirmationModal(true);
-};
+    if (isLimitReached) {
+      alert(`❌ Class Limit Reached!\n\nYou have reached the maximum limit of ${MAX_CLASSES} classes.\n\nPlease delete an existing class before adding a new one.`);
+      return;
+    }
+
+    const normalizedStudents = normalizeHeaders(students);
+
+    const requiredHeaders = ["Student No.", "Name"];
+    const firstRow = normalizedStudents[0] || {};
+    const availableHeaders = Object.keys(firstRow);
+
+    const missingHeaders = requiredHeaders.filter(h => !availableHeaders.includes(h));
+
+    if (missingHeaders.length > 0) {
+      alert(`❌ Missing columns: ${missingHeaders.join(", ")}\n\nAvailable columns: ${availableHeaders.join(", ")}\n\nPlease check your file format.`);
+      return;
+    }
+
+    const validStudents = normalizedStudents.filter(s =>
+      s["Student No."] && s["Name"]
+    );
+
+    if (validStudents.length === 0) {
+      alert("❌ No valid student data found in file");
+      return;
+    }
+
+    const classInfo = extractClassInfo(allData);
+
+    if (classInfo.classNo && classInfo.classNo.trim() !== "") {
+      setUploadProgress("Validating class information...");
+      const classNoExists = await checkClassNoExists(classInfo.classNo);
+      if (classNoExists) {
+        alert(`❌ Duplicate Class No. Detected!\n\nClass No. "${classInfo.classNo}" already exists in your classes.\n\nEach class must have a unique Class No.`);
+        setFileName("");
+        setUploadProgress("");
+        return;
+      }
+      setUploadProgress("");
+    }
+
+    setPendingUploadData({
+      validStudents,
+      file,
+      classInfo
+    });
+    setShowConfirmationModal(true);
+  };
 
   const confirmAndUpload = async () => {
     setShowConfirmationModal(false);
@@ -414,9 +414,9 @@ export default function ManageClasses() {
 
       const { validStudents, file, classInfo } = pendingUploadData;
       const teacherName = user.displayName || user.email?.split('@')[0] || "Teacher";
-      
+
       setUploadProgress(`Creating class: ${classInfo.description || file.name}`);
-      
+
       // Save to Firestore with new structure including classNo and code
       const classDoc = await addDoc(collection(db, "classes"), {
         name: classInfo.description || file.name.replace(/\.(csv|xlsx|xls)$/i, ''),
@@ -466,11 +466,11 @@ export default function ManageClasses() {
 
           if (existingStudent) {
             const updatedClassIds = [...new Set([...existingStudent.classIds, classDoc.id])];
-            
+
             await updateDoc(doc(db, "users", existingStudent.id), {
               classIds: updatedClassIds
             });
-            
+
             addedToExistingCount++;
             console.log(`✅ Added ${name} to class ${classInfo.description} (already exists)`);
           } else {
@@ -488,7 +488,7 @@ export default function ManageClasses() {
               authUID: null,
               createdAt: new Date()
             });
-            
+
             newStudentCount++;
             console.log(`✅ New student created: ${name}`);
           }
@@ -505,20 +505,20 @@ export default function ManageClasses() {
         let message = `✅ Upload Complete!\n\n`;
         message += `✨ New students: ${newStudentCount}\n`;
         message += `🔗 Added to existing: ${addedToExistingCount}\n`;
-        
+
         if (errorCount > 0) {
           message += `❌ Errors: ${errorCount}`;
         }
-        
+
         alert(message);
-        
+
         // Update class count
         await checkClassLimit();
-        
+
         // Trigger real-time update
         console.log("📢 Dispatching classesUpdated event...");
         window.dispatchEvent(new Event('classesUpdated'));
-        
+
         // Navigate to new class
         setTimeout(() => {
           navigate(`/teacher/class/${classDoc.id}`);
@@ -558,7 +558,7 @@ export default function ManageClasses() {
 
     const file = e.target.files[0];
     if (!file) return;
-    
+
     setFileName(file.name);
     setErrorMessage("");
     setUploadCount(0);
@@ -575,7 +575,7 @@ export default function ManageClasses() {
           await processStudentData(results.data, results.meta.fields || [], file, []);
           e.target.value = "";
         },
-        error: function(error) {
+        error: function (error) {
           console.error("CSV parsing error:", error);
           setErrorMessage("Failed to parse CSV file: " + error.message);
           alert("❌ Failed to parse CSV file. Please check the file format.");
@@ -583,23 +583,23 @@ export default function ManageClasses() {
       });
     } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
       const reader = new FileReader();
-      
+
       reader.onload = async (event) => {
         try {
           const data = new Uint8Array(event.target.result);
           const workbook = XLSX.read(data, { type: 'array' });
-          
+
           const firstSheetName = workbook.SheetNames[0];
           const worksheet = workbook.Sheets[firstSheetName];
-          
-          const allData = XLSX.utils.sheet_to_json(worksheet, { 
+
+          const allData = XLSX.utils.sheet_to_json(worksheet, {
             header: 1,
             raw: false,
             defval: ""
           });
-          
+
           console.log("First 15 rows:", allData.slice(0, 15));
-          
+
           let headerRowIndex = -1;
           for (let i = 0; i < allData.length; i++) {
             const row = allData[i];
@@ -610,25 +610,25 @@ export default function ManageClasses() {
               break;
             }
           }
-          
+
           if (headerRowIndex === -1) {
             throw new Error("Could not find header row with 'Student No.' and 'Name' columns");
           }
-          
+
           const range = XLSX.utils.decode_range(worksheet['!ref']);
           range.s.r = headerRowIndex;
           const newRange = XLSX.utils.encode_range(range);
-          
-          const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
+
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, {
             raw: false,
             defval: "",
             range: newRange
           });
-          
+
           console.log("Parsed data from header row:", jsonData.slice(0, 3));
-          
+
           const headers = Object.keys(jsonData[0] || {});
-          
+
           await processStudentData(jsonData, headers, file, allData);
           e.target.value = "";
         } catch (error) {
@@ -637,13 +637,13 @@ export default function ManageClasses() {
           alert("❌ Failed to parse Excel file. Please check the file format.");
         }
       };
-      
+
       reader.onerror = (error) => {
         console.error("File reading error:", error);
         setErrorMessage("Failed to read file");
         alert("❌ Failed to read file");
       };
-      
+
       reader.readAsArrayBuffer(file);
     } else {
       setErrorMessage("Unsupported file format. Please upload CSV or XLSX files only.");
@@ -707,14 +707,13 @@ export default function ManageClasses() {
             className="hidden"
             disabled={uploading || isLimitReached}
           />
-          
+
           <label
             htmlFor="file-upload"
-            className={`inline-block px-6 py-3 font-semibold rounded-lg transition ${
-              uploading || isLimitReached
+            className={`inline-block px-6 py-3 font-semibold rounded-lg transition ${uploading || isLimitReached
                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 : 'bg-blue-600 text-white cursor-pointer active:scale-95 hover:scale-105 transition duration-200 hover:bg-blue-700'
-            }`}
+              }`}
           >
             {uploading ? (
               <span className="flex items-center gap-2">
@@ -750,7 +749,7 @@ export default function ManageClasses() {
         {uploadCount > 0 && !uploading && !errorMessage && (
           <div className="flex items-center justify-center mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
             <p className="flex flex-row gap-2 text-base items-center text-blue-500 font-semibold text-center">
-              <CircleCheck className="w-4 h-4 text-blue-500"/> Successfully processed {uploadCount} student(s)!
+              <CircleCheck className="w-4 h-4 text-blue-500" /> Successfully processed {uploadCount} student(s)!
             </p>
           </div>
         )}

@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import {
   collection,
   query,
@@ -24,6 +25,7 @@ import {
   Trash2,
   X,
   CheckCircle,
+  XCircle,
   PlusCircle,
   Save,
   Loader2,
@@ -44,6 +46,104 @@ import {
   Area
 } from "recharts";
 
+// ─── Custom Toast Notification ───────────────────────────────────────────────
+function Toast({ toast, onClose }) {
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => onClose(), 3500);
+    return () => clearTimeout(timer);
+  }, [toast, onClose]);
+
+  if (!toast) return null;
+
+  const styles = {
+    success: {
+      bg: "bg-green-50 border-green-200",
+      icon: <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />,
+      text: "text-green-800",
+    },
+    error: {
+      bg: "bg-red-50 border-red-200",
+      icon: <XCircle className="w-5 h-5 text-red-500 flex-shrink-0" />,
+      text: "text-red-800",
+    },
+    warning: {
+      bg: "bg-yellow-50 border-yellow-200",
+      icon: <AlertTriangle className="w-5 h-5 text-yellow-500 flex-shrink-0" />,
+      text: "text-yellow-800",
+    },
+  };
+
+  const s = styles[toast.type] || styles.warning;
+
+  return createPortal(
+    <div className="fixed top-20 right-6 z-[9999] animate-slideIn max-w-sm w-full">
+      <div className={`flex items-start gap-3 p-4 rounded-xl border shadow-lg ${s.bg}`}>
+        {s.icon}
+        <p className={`text-sm font-medium flex-1 ${s.text}`}>{toast.message}</p>
+        <button onClick={onClose} className="p-0.5 hover:bg-black/5 rounded-lg transition">
+          <X className="w-4 h-4 text-gray-400" />
+        </button>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// ─── Custom Confirm Dialog ───────────────────────────────────────────────────
+function ConfirmDialog({ isOpen, title, message, confirmLabel, cancelLabel, onConfirm, onCancel, icon, color }) {
+  useEffect(() => {
+    if (!isOpen) return;
+    const scrollableParent = document.querySelector('.overflow-y-auto');
+    document.body.style.overflow = 'hidden';
+    if (scrollableParent) scrollableParent.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = '';
+      if (scrollableParent) scrollableParent.style.overflow = '';
+    };
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const colorMap = {
+    orange: { btn: "bg-orange-500 hover:bg-orange-600", iconBg: "bg-orange-100", iconColor: "text-orange-600" },
+    red: { btn: "bg-red-500 hover:bg-red-600", iconBg: "bg-red-100", iconColor: "text-red-600" },
+    blue: { btn: "bg-blue-500 hover:bg-blue-600", iconBg: "bg-blue-100", iconColor: "text-blue-600" },
+  };
+  const c = colorMap[color] || colorMap.blue;
+
+  return createPortal(
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-fadeIn">
+        <div className="p-6">
+          <div className="flex items-center gap-4 mb-4">
+            <div className={`w-12 h-12 rounded-full ${c.iconBg} flex items-center justify-center flex-shrink-0`}>
+              {icon || <AlertTriangle className={`w-6 h-6 ${c.iconColor}`} />}
+            </div>
+            <h3 className="text-lg font-bold text-gray-900">{title}</h3>
+          </div>
+          <p className="text-gray-600 text-sm leading-relaxed ml-16">{message}</p>
+        </div>
+        <div className="px-6 py-4 bg-gray-50 flex gap-3 justify-end border-t border-gray-100">
+          <button
+            onClick={onCancel}
+            className="px-5 py-2.5 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-100 transition text-sm"
+          >
+            {cancelLabel || "Cancel"}
+          </button>
+          <button
+            onClick={onConfirm}
+            className={`px-5 py-2.5 ${c.btn} text-white rounded-xl font-semibold transition text-sm`}
+          >
+            {confirmLabel || "Confirm"}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 export default function ReportsAnalytics() {
   const [loading, setLoading] = useState(true);
   const [classes, setClasses] = useState([]);
@@ -52,10 +152,21 @@ export default function ReportsAnalytics() {
   const [selectedQuiz, setSelectedQuiz] = useState(null);
   const [analytics, setAnalytics] = useState(null);
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
+  const [loadingQuizzes, setLoadingQuizzes] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [savingChanges, setSavingChanges] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+
+  // Toast state
+  const [toast, setToast] = useState(null);
+  const showToast = useCallback((type, message) => {
+    setToast({ type, message });
+  }, []);
+  const clearToast = useCallback(() => setToast(null), []);
+
+  // Confirm dialog state
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false });
 
   useEffect(() => {
     fetchTeacherClasses();
@@ -91,6 +202,7 @@ export default function ReportsAnalytics() {
   };
 
   const fetchClassQuizzes = async () => {
+    setLoadingQuizzes(true);
     try {
       const assignmentsRef = collection(db, "assignedQuizzes");
       const q = query(
@@ -134,6 +246,8 @@ export default function ReportsAnalytics() {
       setAnalytics(null);
     } catch (error) {
       console.error("Error fetching quizzes:", error);
+    } finally {
+      setLoadingQuizzes(false);
     }
   };
 
@@ -370,26 +484,26 @@ export default function ReportsAnalytics() {
 
   const handleSaveQuestionChanges = async () => {
     if (!editForm.question.trim()) {
-      alert("Question text cannot be empty");
+      showToast("warning", "Question text cannot be empty");
       return;
     }
 
     if (editForm.type === "multiple_choice") {
       if (!editForm.choices || editForm.choices.length < 2) {
-        alert("Multiple choice must have at least 2 choices");
+        showToast("warning", "Multiple choice must have at least 2 choices");
         return;
       }
       if (!editForm.choices.some(c => c.is_correct)) {
-        alert("Please mark one choice as correct");
+        showToast("warning", "Please mark one choice as correct");
         return;
       }
       if (editForm.choices.some(c => !c.text.trim())) {
-        alert("All choices must have text");
+        showToast("warning", "All choices must have text");
         return;
       }
     } else {
       if (!editForm.correct_answer.trim()) {
-        alert("Correct answer cannot be empty");
+        showToast("warning", "Correct answer cannot be empty");
         return;
       }
     }
@@ -426,23 +540,37 @@ export default function ReportsAnalytics() {
 
       await recalculateStudentScores(analytics.quizId, editingQuestion, oldQuestion, updatedQuestions[editingQuestion], updatedQuestions);
 
-      alert("Question updated successfully! Student scores have been recalculated.");
+      showToast("success", "Question updated successfully! Student scores have been recalculated.");
       setShowEditModal(false);
       setEditingQuestion(null);
 
       await fetchQuizAnalytics(analytics.quizId, analytics.quizMode);
     } catch (error) {
       console.error("Error saving question changes:", error);
-      alert("Error saving changes. Please try again.");
+      showToast("error", "Error saving changes. Please try again.");
     } finally {
       setSavingChanges(false);
     }
   };
 
-  const handleDeleteQuestion = async () => {
-    if (!window.confirm("Are you sure you want to delete this question? Student scores will be recalculated.")) {
-      return;
-    }
+  const handleDeleteQuestion = () => {
+    setConfirmDialog({
+      isOpen: true,
+      title: "Delete Question",
+      message: "Are you sure you want to delete this question? Student scores will be recalculated.",
+      confirmLabel: "Delete",
+      cancelLabel: "Cancel",
+      color: "red",
+      icon: <Trash2 className="w-6 h-6 text-red-600" />,
+      onConfirm: () => {
+        setConfirmDialog({ isOpen: false });
+        executeDeleteQuestion();
+      },
+      onCancel: () => setConfirmDialog({ isOpen: false }),
+    });
+  };
+
+  const executeDeleteQuestion = async () => {
 
     setSavingChanges(true);
     try {
@@ -468,14 +596,14 @@ export default function ReportsAnalytics() {
 
       await recalculateStudentScoresAfterDeletion(analytics.quizId, editingQuestion, deletedQuestion, updatedQuestions);
 
-      alert("Question deleted successfully! Student scores have been recalculated.");
+      showToast("success", "Question deleted successfully! Student scores have been recalculated.");
       setShowEditModal(false);
       setEditingQuestion(null);
 
       await fetchQuizAnalytics(analytics.quizId, analytics.quizMode);
     } catch (error) {
       console.error("Error deleting question:", error);
-      alert("Error deleting question. Please try again.");
+      showToast("error", "Error deleting question. Please try again.");
     } finally {
       setSavingChanges(false);
     }
@@ -638,15 +766,57 @@ export default function ReportsAnalytics() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center font-Outfit">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-        <span className="ml-3 text-subtext">Loading…</span>
+      <div className="py-4 px-3 md:py-6 md:px-8 font-Outfit">
+        <div className="flex items-center gap-3">
+          <BarChart2 className="w-7 h-7 md:w-8 md:h-8 text-blue-500 mb-4 md:mb-6" />
+          <div className="flex flex-col mb-4 md:mb-6">
+            <h1 className="text-xl md:text-2xl font-bold text-title flex items-center gap-2">
+              Reports & Analytics
+            </h1>
+            <p className="text-sm md:text-md font-light text-subtext">
+              View detailed quiz details and student performance and insights.
+            </p>
+          </div>
+        </div>
+
+        {/* Skeleton Class Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[...Array(6)].map((_, i) => (
+            <div
+              key={i}
+              className="bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-200 rounded-2xl p-6 animate-pulse"
+            >
+              <div className="h-6 bg-gray-200 rounded-lg w-3/4 mb-3" />
+              <div className="h-4 bg-gray-200 rounded-lg w-24 mb-1" />
+              <div className="h-3 bg-gray-200 rounded-lg w-28 mb-1" />
+              <div className="h-3 bg-gray-200 rounded-lg w-32 mb-4" />
+              <div className="flex items-center justify-end">
+                <div className="h-5 bg-gray-200 rounded-lg w-28" />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
 
   return (
     <div className="py-4 px-3 md:py-6 md:px-8 font-Outfit">
+      {/* Toast Notification */}
+      <Toast toast={toast} onClose={clearToast} />
+
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        confirmLabel={confirmDialog.confirmLabel}
+        cancelLabel={confirmDialog.cancelLabel}
+        onConfirm={confirmDialog.onConfirm}
+        onCancel={confirmDialog.onCancel}
+        icon={confirmDialog.icon}
+        color={confirmDialog.color}
+      />
       <div className="flex items-center gap-3">
         <BarChart2 className="w-7 h-7 md:w-8 md:h-8 text-blue-500 mb-4 md:mb-6" />
         <div className="flex flex-col mb-4 md:mb-6">
@@ -709,7 +879,26 @@ export default function ReportsAnalytics() {
 
           {!selectedQuiz ? (
             <>
-              {quizzes.length > 0 ? (
+              {loadingQuizzes ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {[...Array(6)].map((_, i) => (
+                    <div
+                      key={i}
+                      className="bg-white border-2 border-gray-200 rounded-2xl p-6 animate-pulse"
+                    >
+                      <div className="h-5 bg-gray-200 rounded-lg w-3/4 mb-4" />
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="w-4 h-4 bg-gray-200 rounded" />
+                        <div className="h-4 bg-gray-200 rounded-lg w-20" />
+                      </div>
+                      <div className="h-3 bg-gray-200 rounded-lg w-32 mb-4" />
+                      <div className="flex items-center justify-end">
+                        <div className="h-5 bg-gray-200 rounded-lg w-28" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : quizzes.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {quizzes.map((quiz) => (
                     <button
@@ -762,10 +951,56 @@ export default function ReportsAnalytics() {
               </div>
 
               {loadingAnalytics && (
-                <div className="bg-white rounded-2xl p-12 shadow-md text-center">
-                  <Loader className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
-                  <p className="text-gray-600">Loading analytics...</p>
-                </div>
+                <>
+                  {/* Skeleton Stat Cards */}
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4 mb-4 md:mb-8">
+                    {[
+                      "from-purple-400 to-pink-400",
+                      "from-blue-400 to-cyan-400",
+                      "from-blue-400 to-emerald-400",
+                      "from-yellow-400 to-orange-400",
+                      "from-indigo-400 to-purple-400"
+                    ].map((gradient, i) => (
+                      <div
+                        key={i}
+                        className={`bg-gradient-to-br ${gradient} rounded-xl md:rounded-2xl p-3 md:p-6 shadow-lg animate-pulse ${i === 4 ? "col-span-2 md:col-span-1" : ""}`}
+                      >
+                        <div className="flex items-center gap-2 md:gap-3 mb-2 md:mb-3">
+                          <div className="w-4 h-4 md:w-6 md:h-6 bg-white/30 rounded" />
+                          <div className="h-3 md:h-4 bg-white/30 rounded-lg flex-1" />
+                        </div>
+                        <div className="h-6 md:h-9 bg-white/30 rounded-lg w-2/3 mb-1" />
+                        <div className="h-3 md:h-4 bg-white/30 rounded-lg w-1/2 mt-1" />
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Skeleton Chart */}
+                  <div className="bg-white rounded-2xl p-4 md:p-6 shadow-md mb-4 md:mb-8 animate-pulse">
+                    <div className="h-5 bg-gray-200 rounded-lg w-48 mb-4" />
+                    <div className="h-48 md:h-64 bg-gray-100 rounded-xl flex items-end justify-around px-4 pb-4 gap-2">
+                      {[40, 70, 55, 85, 30, 65, 90, 45, 75, 60].map((h, i) => (
+                        <div key={i} className="bg-gray-200 rounded-t-md w-full" style={{ height: `${h}%` }} />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Skeleton Table */}
+                  <div className="bg-white rounded-2xl p-4 md:p-6 shadow-md animate-pulse">
+                    <div className="h-5 bg-gray-200 rounded-lg w-56 mb-4" />
+                    <div className="space-y-3">
+                      {[...Array(5)].map((_, i) => (
+                        <div key={i} className="flex items-center gap-4">
+                          <div className="w-8 h-8 bg-gray-200 rounded-lg flex-shrink-0" />
+                          <div className="flex-1 h-4 bg-gray-200 rounded-lg" />
+                          <div className="w-16 h-4 bg-gray-200 rounded-lg" />
+                          <div className="w-16 h-4 bg-gray-200 rounded-lg" />
+                          <div className="w-20 h-6 bg-gray-200 rounded-full" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
               )}
 
               {!loadingAnalytics && analytics && (
