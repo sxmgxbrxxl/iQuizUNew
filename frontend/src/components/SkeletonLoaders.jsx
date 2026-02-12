@@ -280,3 +280,39 @@ export function ClassPageSkeleton() {
     );
 }
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// QuizGridSkeleton — used in ManageQuizzes.jsx
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+export function QuizGridSkeleton({ count = 6, hasButtons = false }) {
+    return (
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-5 animate-pulse font-Outfit">
+            <SkeletonKeyframes />
+            {[...Array(count)].map((_, i) => (
+                <div
+                    key={i}
+                    className="border border-gray-100 rounded-xl p-3 md:p-5 shadow-sm bg-white"
+                >
+                    {/* Header: Title + Button */}
+                    <div className="relative flex flex-row justify-between mb-3">
+                        <div className="flex flex-col w-full pr-8 space-y-2">
+                            <SkeletonBlock width="70%" height="20px" delay={i * 0.1} />
+                            <SkeletonBlock width="40%" height="12px" delay={i * 0.1 + 0.05} />
+                            <SkeletonBlock width="30%" height="12px" delay={i * 0.1 + 0.08} />
+                        </div>
+                        {/* Top-right delete/edit icon placeholder */}
+                        <SkeletonBlock width="24px" height="24px" rounded="6px" className="absolute top-0 right-0" delay={i * 0.1} />
+                    </div>
+
+                    {/* Bottom Buttons (Optional) */}
+                    {hasButtons && (
+                        <div className="flex justify-between items-center gap-2 mt-3 md:mt-4 pt-3 border-t border-gray-50">
+                            <SkeletonBlock width="100%" height="32px" rounded="8px" delay={i * 0.1 + 0.1} />
+                            <SkeletonBlock width="100%" height="32px" rounded="8px" delay={i * 0.1 + 0.12} />
+                        </div>
+                    )}
+                </div>
+            ))}
+        </div>
+    );
+}
+

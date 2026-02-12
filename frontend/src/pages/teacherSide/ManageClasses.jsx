@@ -10,8 +10,25 @@ import { collection, addDoc, query, where, getDocs, doc, updateDoc } from "fireb
 // Class Confirmation Modal Component
 function ClassConfirmationModal({ isOpen, classInfo, students, onConfirm, onCancel }) {
   const [isConfirming, setIsConfirming] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  // Reset to first page when students data changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [students]);
 
   if (!isOpen) return null;
+
+  const totalPages = Math.ceil(students.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const currentStudents = students.slice(startIndex, startIndex + itemsPerPage);
+
+  const handlePageChange = (page) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
 
   const handleConfirm = async () => {
     setIsConfirming(true);
@@ -21,7 +38,7 @@ function ClassConfirmationModal({ isOpen, classInfo, students, onConfirm, onCanc
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50">
           <h3 className="text-xl font-bold text-gray-800">Confirm Class Information</h3>
@@ -37,20 +54,24 @@ function ClassConfirmationModal({ isOpen, classInfo, students, onConfirm, onCanc
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
           {/* Class Information */}
-          <div className="mb-6 bg-blue-50 border-2 border-blue-200 rounded-xl p-5">
-            <h4 className="font-bold text-lg text-blue-900 mb-4">📚 Class Details</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="mb-4 bg-blue-50/50 border border-blue-200 rounded-lg p-3">
+            <h4 className="font-bold text-base text-blue-900 mb-2 flex items-center gap-2">
+              📚 Class Details
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
               <div>
-                <p className="text-sm text-blue-700 font-semibold mb-1">Class No.</p>
-                <p className="text-base text-gray-800 font-medium">{classInfo.classNo || "N/A"}</p>
+                <p className="text-xs text-blue-700 font-semibold mb-0.5">Class No.</p>
+                <p className="text-sm text-gray-800 font-medium">{classInfo.classNo || "N/A"}</p>
               </div>
               <div>
-                <p className="text-sm text-blue-700 font-semibold mb-1">Code</p>
-                <p className="text-base text-gray-800 font-medium">{classInfo.code || "N/A"}</p>
+                <p className="text-xs text-blue-700 font-semibold mb-0.5">Code</p>
+                <p className="text-sm text-gray-800 font-medium">{classInfo.code || "N/A"}</p>
               </div>
               <div className="md:col-span-2">
-                <p className="text-sm text-blue-700 font-semibold mb-1">Description</p>
-                <p className="text-base text-gray-800 font-medium">{classInfo.description || "N/A"}</p>
+                <p className="text-xs text-blue-700 font-semibold mb-0.5">Description</p>
+                <p className="text-sm text-gray-800 font-medium truncate" title={classInfo.description}>
+                  {classInfo.description || "N/A"}
+                </p>
               </div>
             </div>
           </div>
@@ -60,7 +81,7 @@ function ClassConfirmationModal({ isOpen, classInfo, students, onConfirm, onCanc
             <h4 className="font-bold text-lg text-gray-800 mb-3">
               👥 Students ({students.length})
             </h4>
-            <div className="border border-gray-200 rounded-xl overflow-hidden">
+            <div className="border border-gray-200 rounded-xl overflow-hidden mb-4">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-100 border-b border-gray-200">
@@ -75,9 +96,9 @@ function ClassConfirmationModal({ isOpen, classInfo, students, onConfirm, onCanc
                     </tr>
                   </thead>
                   <tbody>
-                    {students.slice(0, 10).map((student, index) => (
-                      <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="px-4 py-3 text-gray-700">{student.No || index + 1}</td>
+                    {currentStudents.map((student, index) => (
+                      <tr key={startIndex + index} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="px-4 py-3 text-gray-700">{student.No || startIndex + index + 1}</td>
                         <td className="px-4 py-3 text-gray-700">{student["Student No."]}</td>
                         <td className="px-4 py-3 text-gray-700 font-medium">{student.Name}</td>
                         <td className="px-4 py-3 text-gray-700">{student.Gender}</td>
@@ -86,15 +107,88 @@ function ClassConfirmationModal({ isOpen, classInfo, students, onConfirm, onCanc
                         <td className="px-4 py-3 text-gray-700 text-xs">{student["Email Address"]}</td>
                       </tr>
                     ))}
+                    {currentStudents.length === 0 && (
+                      <tr>
+                        <td colSpan="7" className="px-4 py-8 text-center text-gray-500">
+                          No students found
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
-              {students.length > 10 && (
-                <div className="px-4 py-3 bg-gray-50 text-sm text-gray-600 text-center">
-                  ... and {students.length - 10} more students
-                </div>
-              )}
             </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-2">
+                <div className="text-sm text-gray-500">
+                  Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, students.length)} of {students.length} entries
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Previous
+                  </button>
+
+                  <div className="flex items-center gap-1">
+                    {/* First Page */}
+                    {currentPage > 3 && (
+                      <>
+                        <button
+                          onClick={() => handlePageChange(1)}
+                          className={`w-8 h-8 flex items-center justify-center rounded-md text-sm ${currentPage === 1
+                            ? 'bg-blue-600 text-white'
+                            : 'border border-gray-300 hover:bg-gray-50'
+                            }`}
+                        >
+                          1
+                        </button>
+                        {currentPage > 4 && <span className="text-gray-400">...</span>}
+                      </>
+                    )}
+
+                    {/* Page Numbers */}
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                      .filter(page => {
+                        // Logic to show a window of pages around current page
+                        return page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1);
+                      })
+                      .map((page, index, array) => {
+                        // Add ellipsis if there's a gap
+                        const prevPage = array[index - 1];
+                        const showEllipsisBefore = prevPage && page - prevPage > 1;
+
+                        return (
+                          <div key={page} className="flex items-center">
+                            {showEllipsisBefore && <span className="mr-1 text-gray-400">...</span>}
+                            <button
+                              onClick={() => handlePageChange(page)}
+                              className={`w-8 h-8 flex items-center justify-center rounded-md text-sm ${currentPage === page
+                                ? 'bg-blue-600 text-white'
+                                : 'border border-gray-300 hover:bg-gray-50'
+                                }`}
+                            >
+                              {page}
+                            </button>
+                          </div>
+                        );
+                      })}
+                  </div>
+
+                  <button
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -711,8 +805,8 @@ export default function ManageClasses() {
           <label
             htmlFor="file-upload"
             className={`inline-block px-6 py-3 font-semibold rounded-lg transition ${uploading || isLimitReached
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : 'bg-blue-600 text-white cursor-pointer active:scale-95 hover:scale-105 transition duration-200 hover:bg-blue-700'
+              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              : 'bg-blue-600 text-white cursor-pointer active:scale-95 hover:scale-105 transition duration-200 hover:bg-blue-700'
               }`}
           >
             {uploading ? (

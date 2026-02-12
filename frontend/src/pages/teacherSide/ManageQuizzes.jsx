@@ -36,6 +36,8 @@ import Toast from "../../components/Toast";
 import ConfirmDialog from "../../components/ConfirmDialog";
 
 
+import { QuizGridSkeleton } from "../../components/SkeletonLoaders";
+
 const ITEMS_PER_PAGE = 6;
 
 export default function ManageQuizzes() {
@@ -944,10 +946,7 @@ export default function ManageQuizzes() {
         </h3>
 
         {loadingQuizzes ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-            <span className="ml-3 text-subtext">Loading…</span>
-          </div>
+          <QuizGridSkeleton count={3} hasButtons={true} />
         ) : publishedQuizzes.length === 0 ? (
           <div className="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
             <p className="text-gray-500 text-lg">No published quizzes yet</p>
@@ -1020,10 +1019,7 @@ export default function ManageQuizzes() {
         </h3>
 
         {loadingSynchronous ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-yellow-600" />
-            <span className="ml-3 text-gray-600">Loading…</span>
-          </div>
+          <QuizGridSkeleton count={3} hasButtons={false} />
         ) : synchronousQuizzes.length === 0 ? (
           <div className="text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-300">
             <Zap className="w-12 h-12 mx-auto mb-4 text-gray-300" />
@@ -1207,10 +1203,7 @@ export default function ManageQuizzes() {
         </h3>
 
         {loadingAssigned ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
-            <span className="ml-3 text-gray-600">Loading…</span>
-          </div>
+          <QuizGridSkeleton count={3} hasButtons={false} />
         ) : assignedQuizzes.length === 0 ? (
           <div className="text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-300">
             <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />

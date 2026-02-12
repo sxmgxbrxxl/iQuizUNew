@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 
 export default function Sidebar({ user, userDoc }) {
-  const [isOpen, setIsOpen] = useState(false);
+
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -277,7 +277,7 @@ export default function Sidebar({ user, userDoc }) {
                 key={item.to}
                 to={item.to}
                 onClick={() => {
-                  setIsOpen(false);
+                  setIsMobileOpen(false);
                   if (isActive(item.to)) {
                     window.dispatchEvent(new Event('refreshPage'));
                   }
@@ -351,7 +351,7 @@ export default function Sidebar({ user, userDoc }) {
                   {/* Add Class Button */}
                   <Link
                     to="/teacher/classes/add"
-                    onClick={() => setIsOpen(false)}
+                    onClick={() => setIsMobileOpen(false)}
                     className="flex items-center gap-3 px-3 py-2.5 my-1 rounded-lg text-blue-600 hover:bg-blue-50 transition-all duration-200 group"
                   >
                     <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center group-hover:bg-blue-200 transition-colors duration-200 flex-shrink-0">
@@ -389,7 +389,7 @@ export default function Sidebar({ user, userDoc }) {
                         >
                           <Link
                             to={`/teacher/class/${cls.id}`}
-                            onClick={() => setIsOpen(false)}
+                            onClick={() => setIsMobileOpen(false)}
                             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group ${isClassActive(cls.id)
                               ? "bg-blue-50 text-blue-700"
                               : "text-gray-600 hover:bg-gray-50 hover:text-gray-800"
@@ -426,7 +426,7 @@ export default function Sidebar({ user, userDoc }) {
                 key={item.to}
                 to={item.to}
                 onClick={() => {
-                  setIsOpen(false);
+                  setIsMobileOpen(false);
                   if (isActive(item.to)) {
                     window.dispatchEvent(new Event('refreshPage'));
                   }
@@ -496,7 +496,7 @@ export default function Sidebar({ user, userDoc }) {
                 <div className="mt-2 ml-4 space-y-2 border-l-2 border-blue-200 pl-4 animate-fadeIn">
                   <Link
                     to="/teacher/archives/classes"
-                    onClick={() => setIsOpen(false)}
+                    onClick={() => setIsMobileOpen(false)}
                     className={`flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 group ${location.pathname === '/teacher/archives/classes' ? 'bg-blue-50 text-blue-700' : ''
                       }`}
                   >
@@ -506,7 +506,7 @@ export default function Sidebar({ user, userDoc }) {
 
                   <Link
                     to="/teacher/archives/quizzes"
-                    onClick={() => setIsOpen(false)}
+                    onClick={() => setIsMobileOpen(false)}
                     className={`flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 group ${location.pathname === '/teacher/archives/quizzes' ? 'bg-blue-50 text-blue-700' : ''
                       }`}
                   >
@@ -537,9 +537,9 @@ export default function Sidebar({ user, userDoc }) {
         </div>
       )}
 
-      {isOpen && (
+      {isMobileOpen && (
         <div
-          onClick={() => setIsOpen(false)}
+          onClick={() => setIsMobileOpen(false)}
           className="fixed inset-0 bg-black/70 backdrop-blur-sm z-30 lg:hidden transition-opacity"
         />
       )}

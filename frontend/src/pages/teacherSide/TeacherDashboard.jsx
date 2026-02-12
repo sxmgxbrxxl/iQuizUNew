@@ -487,23 +487,25 @@ export default function TeacherDashboard({ user, userDoc }) {
             ) : (
               <div className="px-2 py-6 md:p-8">
                 {/* Header with greeting */}
-                <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-2 mb-8">
+                {/* Header with greeting */}
+                {/* Header with greeting */}
+                <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-6 rounded-2xl shadow-lg flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-8">
                   <div>
-                    <h1 className="text-2xl md:text-3xl font-bold text-title">
+                    <h1 className="text-2xl md:text-3xl font-bold">
                       {getGreeting()},{" "}
                       {userDoc?.firstName || user?.displayName || "Teacher"}! 👋
                     </h1>
-                    <p className="text-md md:text-lg text-subtext mt-1">
+                    <p className="text-md md:text-lg text-blue-100 mt-1">
                       Manage your classes, quizzes, and view student performance
                       analytics
                     </p>
                   </div>
-                  <div className="flex items-center gap-3 text-sm text-gray-400">
+                  <div className="flex items-center gap-3 text-sm text-blue-100 bg-white/10 px-4 py-2 rounded-xl backdrop-blur-sm border border-white/10">
                     <div className="flex items-center gap-2">
                       <CalendarDays size={16} />
                       <span>{getFormattedDate()}</span>
                     </div>
-                    <span className="text-gray-200">|</span>
+                    <span className="text-blue-200">|</span>
                     <div className="flex items-center gap-2">
                       <Clock size={16} />
                       <span className="font-medium tabular-nums">
