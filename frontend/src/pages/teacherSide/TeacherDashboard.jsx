@@ -32,6 +32,9 @@ export default function TeacherDashboard({ user, userDoc }) {
   const location = useLocation();
   const navigate = useNavigate();
 
+  const isMainDashboard =
+    location.pathname === "/teacher" || location.pathname === "/teacher/";
+
   const [totalClasses, setTotalClasses] = useState(0);
   const [totalQuizzes, setTotalQuizzes] = useState(0);
   const [totalStudents, setTotalStudents] = useState(0);
@@ -87,6 +90,8 @@ export default function TeacherDashboard({ user, userDoc }) {
       return;
     }
 
+    if (!isMainDashboard) return;
+
     setLoadingClasses(true);
     const q = query(collection(db, "classes"), where("teacherId", "==", teacherId));
 
@@ -112,6 +117,8 @@ export default function TeacherDashboard({ user, userDoc }) {
       return;
     }
 
+    if (!isMainDashboard) return;
+
     setLoadingQuizzes(true);
     const q = query(collection(db, "quizzes"), where("teacherId", "==", teacherId));
 
@@ -136,6 +143,8 @@ export default function TeacherDashboard({ user, userDoc }) {
       setLoadingStudents(false);
       return;
     }
+
+    if (!isMainDashboard) return;
 
     setLoadingStudents(true);
     const q = query(collection(db, "classes"), where("teacherId", "==", teacherId));
@@ -165,6 +174,8 @@ export default function TeacherDashboard({ user, userDoc }) {
       setLoadingAvgScore(false);
       return;
     }
+
+    if (!isMainDashboard) return;
 
     const fetchAverageScore = async () => {
       setLoadingAvgScore(true);
@@ -226,6 +237,8 @@ export default function TeacherDashboard({ user, userDoc }) {
       return;
     }
 
+    if (!isMainDashboard) return;
+
     setLoadingRecent(true);
     const q = query(
       collection(db, "quizzes"),
@@ -266,6 +279,8 @@ export default function TeacherDashboard({ user, userDoc }) {
       setLoadingActivity(false);
       return;
     }
+
+    if (!isMainDashboard) return;
 
     setLoadingActivity(true);
     const q = query(
@@ -337,8 +352,7 @@ export default function TeacherDashboard({ user, userDoc }) {
     return () => observer.disconnect();
   }, []);
 
-  const isMainDashboard =
-    location.pathname === "/teacher" || location.pathname === "/teacher/";
+
 
   const isInitialLoading =
     loadingClasses || loadingQuizzes || loadingStudents || loadingAvgScore || loadingRecent || loadingActivity;

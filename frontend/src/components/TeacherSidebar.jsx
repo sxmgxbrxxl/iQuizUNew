@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 
 export default function Sidebar({ user, userDoc }) {
+  const sidebarRef = useRef(null);
 
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -80,6 +81,24 @@ export default function Sidebar({ user, userDoc }) {
       fetchClasses();
     }
   }, [location.pathname]);
+
+  // Handle click outside sidebar on mobile
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      // Check if sidebar is open, click is outside sidebar, AND checked not on toggle button
+      if (
+        isMobileOpen &&
+        sidebarRef.current &&
+        !sidebarRef.current.contains(e.target) &&
+        !e.target.closest('button[aria-label="Toggle sidebar"]')
+      ) {
+        setIsMobileOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isMobileOpen]);
 
   // Close profile dropdown on click outside
   useEffect(() => {
@@ -180,15 +199,15 @@ export default function Sidebar({ user, userDoc }) {
 
           {/* Logo next to hamburger - desktop only */}
           <div className="hidden lg:flex items-center gap-3">
-            <img src={LOGO} alt="Logo" className="w-8 h-8" />
-            <h1 className="text-lg font-bold font-Outfit leading-tight text-white">iQuizU</h1>
+            <img src={LOGO} alt="Logo" className="w-10 h-10" />
+            <h1 className="text-2xl font-bold font-Outfit leading-tight text-white">iQuizU</h1>
           </div>
         </div>
 
         {/* Center Section: Logo - mobile only */}
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex lg:hidden items-center gap-3">
-          <img src={LOGO} alt="Logo" className="w-8 h-8" />
-          <h1 className="text-lg font-bold font-Outfit leading-tight text-white">iQuizU</h1>
+          <img src={LOGO} alt="Logo" className="w-10 h-10" />
+          <h1 className="text-2xl font-bold font-Outfit leading-tight text-white">iQuizU</h1>
         </div>
 
         {/* Right Section: Profile Dropdown */}
@@ -258,6 +277,7 @@ export default function Sidebar({ user, userDoc }) {
 
       {/* Sidebar */}
       <div
+        ref={sidebarRef}
         className={`fixed top-16 left-0 h-[calc(100vh-64px)] bg-white border-r border-gray-200 shadow-sm transition-all duration-300 ease-in-out z-40 flex flex-col
         ${isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
         ${isCollapsed ? "lg:w-20" : "lg:w-72"}
@@ -389,7 +409,10 @@ export default function Sidebar({ user, userDoc }) {
                         >
                           <Link
                             to={`/teacher/class/${cls.id}`}
-                            onClick={() => setIsMobileOpen(false)}
+                            onClick={() => {
+                              setIsMobileOpen(false);
+                              setHoveredClass(null);
+                            }}
                             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group ${isClassActive(cls.id)
                               ? "bg-blue-50 text-blue-700"
                               : "text-gray-600 hover:bg-gray-50 hover:text-gray-800"
@@ -537,12 +560,7 @@ export default function Sidebar({ user, userDoc }) {
         </div>
       )}
 
-      {isMobileOpen && (
-        <div
-          onClick={() => setIsMobileOpen(false)}
-          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-30 lg:hidden transition-opacity"
-        />
-      )}
+
 
       {showConfirm && (
         <div className="font-Outfit fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 animate-fadeIn">

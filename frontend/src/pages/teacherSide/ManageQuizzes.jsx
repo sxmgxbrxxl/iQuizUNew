@@ -965,10 +965,10 @@ export default function ManageQuizzes() {
                       <div className="flex flex-col w-full">
                         <h4 className="text-sm md:text-lg font-bold text-title pr-6 break-words leading-tight mb-1">{q.title}</h4>
                         <p className="text-gray-500 text-xs md:text-sm">
-                          {q.questionCount} Qs
+                          {q.questionCount} Questions
                         </p>
                         <p className="text-gray-500 text-xs md:text-sm">
-                          {q.totalPoints} Pts
+                          {q.totalPoints} Points
                         </p>
                       </div>
                       <button
