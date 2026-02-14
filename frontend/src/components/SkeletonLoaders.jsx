@@ -316,3 +316,107 @@ export function QuizGridSkeleton({ count = 6, hasButtons = false }) {
     );
 }
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// EditQuizSkeleton — used in EditQuiz.jsx
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+export function EditQuizSkeleton() {
+    return (
+        <div className="px-2 py-6 md:p-8 font-Outfit">
+            <SkeletonKeyframes />
+
+            {/* Back button */}
+            <div className="mb-6">
+                <SkeletonBlock width="180px" height="16px" />
+            </div>
+
+            {/* Title banner */}
+            <div
+                className="p-4 md:p-6 rounded-3xl mb-6"
+                style={{
+                    background: "linear-gradient(90deg, #3b82f6 25%, #93c5fd 50%, #3b82f6 75%)",
+                    backgroundSize: "200% 100%",
+                    animation: "skeletonShimmer 1.5s ease-in-out infinite",
+                }}
+            >
+                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+                    <div className="flex-1">
+                        <SkeletonBlock width="60%" height="24px" className="mb-3" delay={0.05} />
+                        <div className="flex items-center gap-4">
+                            <SkeletonBlock width="100px" height="14px" delay={0.1} />
+                            <SkeletonBlock width="80px" height="14px" delay={0.15} />
+                        </div>
+                    </div>
+                    <SkeletonBlock width="110px" height="36px" rounded="8px" delay={0.1} />
+                </div>
+            </div>
+
+            {/* Question sections */}
+            {[0, 1].map((sectionIdx) => (
+                <div key={sectionIdx} className="mb-8">
+                    {/* Section header */}
+                    <div className="flex flex-col md:flex-row justify-between items-start gap-3 md:gap-0 border-b-2 border-gray-200 pb-6 mb-4">
+                        <div className="flex items-center gap-2">
+                            <SkeletonBlock width="140px" height="22px" delay={sectionIdx * 0.2} />
+                            <SkeletonBlock width="70px" height="22px" rounded="9999px" delay={sectionIdx * 0.2 + 0.05} />
+                        </div>
+                        <SkeletonBlock width="120px" height="36px" rounded="8px" delay={sectionIdx * 0.2 + 0.08} />
+                    </div>
+
+                    {/* Question cards */}
+                    <div className="space-y-4">
+                        {[0, 1].map((cardIdx) => {
+                            const d = sectionIdx * 0.2 + cardIdx * 0.15;
+                            return (
+                                <div key={cardIdx} className="bg-gray-50 p-4 md:p-6 border-2 rounded-3xl border-gray-200">
+                                    <div className="flex items-start gap-3 mb-4">
+                                        {/* Number circle */}
+                                        <SkeletonBlock width="32px" height="32px" rounded="9999px" delay={d} />
+                                        <div className="flex-1">
+                                            {/* Badge row */}
+                                            <div className="flex items-center gap-2 mb-3 flex-wrap">
+                                                <SkeletonBlock width="80px" height="20px" rounded="9999px" delay={d + 0.03} />
+                                                <SkeletonBlock width="50px" height="20px" rounded="9999px" delay={d + 0.06} />
+                                                <SkeletonBlock width="70px" height="20px" rounded="9999px" delay={d + 0.09} />
+                                                <SkeletonBlock width="55px" height="20px" rounded="9999px" delay={d + 0.12} />
+                                            </div>
+                                            {/* Question text */}
+                                            <SkeletonBlock width="90%" height="18px" delay={d + 0.15} className="mb-2" />
+                                            <SkeletonBlock width="60%" height="18px" delay={d + 0.18} />
+                                        </div>
+                                    </div>
+
+                                    {/* Answer area */}
+                                    <div className="ml-6 md:ml-11 space-y-2">
+                                        {sectionIdx === 0 ? (
+                                            [0, 1, 2, 3].map((i) => (
+                                                <div key={i} className="p-3 rounded-lg border-2 border-gray-200 bg-white">
+                                                    <div className="flex items-center gap-2">
+                                                        <SkeletonBlock width="18px" height="14px" delay={d + 0.2 + i * 0.03} />
+                                                        <SkeletonBlock width={`${60 - i * 8}%`} height="14px" delay={d + 0.22 + i * 0.03} />
+                                                    </div>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div className="bg-blue-50 border-2 border-gray-200 rounded-lg p-3">
+                                                <div className="flex items-center gap-2">
+                                                    <SkeletonBlock width="90px" height="14px" delay={d + 0.2} />
+                                                    <SkeletonBlock width="60px" height="14px" delay={d + 0.23} />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            ))}
+
+            {/* Bottom buttons */}
+            <div className="mt-8 flex flex-col-reverse md:flex-row justify-end gap-3">
+                <SkeletonBlock width="100px" height="44px" rounded="8px" />
+                <SkeletonBlock width="140px" height="44px" rounded="8px" delay={0.08} />
+            </div>
+        </div>
+    );
+}

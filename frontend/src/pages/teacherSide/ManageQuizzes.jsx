@@ -63,6 +63,7 @@ export default function ManageQuizzes() {
   const [copiedCodeId, setCopiedCodeId] = useState(null);
   const [selectedSyncQuiz, setSelectedSyncQuiz] = useState(null);
   const [selectedAsyncQuiz, setSelectedAsyncQuiz] = useState(null);
+  const [selectedPublishedQuiz, setSelectedPublishedQuiz] = useState(null);
   const [deletingAssignment, setDeletingAssignment] = useState(null);
   const [mounted, setMounted] = useState(false);
 
@@ -137,6 +138,10 @@ export default function ManageQuizzes() {
           mode: d.mode || "Published",
           totalPoints: d.totalPoints,
           questionCount: d.questions?.length || 0,
+          questions: d.questions || [],
+          createdAt: d.createdAt,
+          updatedAt: d.updatedAt,
+          classificationStats: d.classificationStats,
         };
       });
       setPublishedQuizzes(quizzes);
@@ -959,7 +964,8 @@ export default function ManageQuizzes() {
                 .map((q) => (
                   <div
                     key={q.id}
-                    className="border border-gray-200 rounded-xl p-3 md:p-5 shadow-sm hover:shadow-md transition bg-blue-50/40 hover:bg-blue-50"
+                    onClick={() => setSelectedPublishedQuiz(q)}
+                    className="border border-gray-200 rounded-xl p-3 md:p-5 shadow-sm hover:shadow-md transition bg-blue-50/40 hover:bg-blue-50 cursor-pointer"
                   >
                     <div className="relative flex flex-row">
                       <div className="flex flex-col w-full">
@@ -971,33 +977,6 @@ export default function ManageQuizzes() {
                           {q.totalPoints} Points
                         </p>
                       </div>
-                      <button
-                        onClick={() => handleDeleteQuiz(q.id, q.title)}
-                        disabled={deletingQuiz === q.id}
-                        className={`absolute -top-1 -right-1 md:top-2 md:right-1 text-red-600 transition-all active:scale-95 hover:scale-105 duration-200 hover:bg-red-50 p-1.5 rounded ${deletingQuiz === q.id ? 'opacity-50 cursor-not-allowed' : ''
-                          }`}
-                        title="Delete quiz">
-                        {deletingQuiz === q.id ? (
-                          <Loader2 className="w-3 h-3 md:w-4 md:h-4 animate-spin" />
-                        ) : (
-                          <Trash2 className="w-3 h-3 md:w-4 md:h-4" />
-                        )}
-                      </button>
-                    </div>
-
-                    <div className="flex justify-between items-center gap-2 mt-3 md:mt-4">
-                      <button
-                        onClick={() => navigate(`/teacher/edit-quiz/${q.id}`)}
-                        className="flex-1 justify-center text-blue-600 rounded-lg bg-blue-50 border border-blue-200 px-2 py-1.5 md:px-3 md:py-2 font-semibold flex items-center gap-1 transition hover:bg-blue-100 text-xs md:text-base"
-                      >
-                        <Pen className="w-3 h-3 md:w-4 md:h-4" /> <span className="hidden md:block">Edit</span>
-                      </button>
-                      <button
-                        onClick={() => navigate(`/teacher/assign-quiz/${q.id}`)}
-                        className="flex-1 justify-center text-gray-700 bg-gray-50 border border-gray-200 px-2 py-1.5 md:px-3 md:py-2 rounded-lg font-semibold flex items-center gap-1 transition hover:bg-gray-100 text-xs md:text-base"
-                      >
-                        <Users className="w-3 h-3 md:w-4 md:h-4" /> <span className="hidden md:block">Assign</span>
-                      </button>
                     </div>
                   </div>
                 ))}
@@ -1006,6 +985,141 @@ export default function ManageQuizzes() {
           </>
         )}
       </div>
+
+      {/* Published Quiz Detail Dialog */}
+      {mounted && selectedPublishedQuiz && createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 font-Outfit animate-fadeIn" onClick={() => setSelectedPublishedQuiz(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl animate-slideUp" onClick={(e) => e.stopPropagation()}>
+            {/* Dialog Header */}
+            <div className="flex items-center justify-between p-5 border-b border-gray-100 bg-blue-50/50">
+              <div className="flex items-center gap-2">
+                <NotebookPen className="w-5 h-5 text-blue-500" />
+                <h3 className="text-lg font-bold text-title">{selectedPublishedQuiz.title}</h3>
+              </div>
+              <button onClick={() => setSelectedPublishedQuiz(null)} className="hover:bg-blue-100 rounded-lg p-1.5 transition text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Dialog Body */}
+            <div className="p-5 space-y-4">
+              {/* Info */}
+              <div className="space-y-3 text-sm">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <span className="text-gray-500 text-xs uppercase font-bold tracking-wider">Total</span>
+                    <p className="font-semibold text-gray-800 text-lg">{selectedPublishedQuiz.questionCount} <span className="text-sm font-normal text-gray-500">Questions</span></p>
+                    <p className="font-semibold text-gray-800 text-lg">{selectedPublishedQuiz.totalPoints} <span className="text-sm font-normal text-gray-500">Points</span></p>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 text-xs uppercase font-bold tracking-wider">Dates</span>
+                    <p className="text-gray-600 text-xs mt-1">
+                      Created: {selectedPublishedQuiz.createdAt?.seconds ? new Date(selectedPublishedQuiz.createdAt.seconds * 1000).toLocaleDateString("en-PH") : "N/A"}
+                    </p>
+                    <p className="text-gray-600 text-xs">
+                      Updated: {selectedPublishedQuiz.updatedAt?.seconds ? new Date(selectedPublishedQuiz.updatedAt.seconds * 1000).toLocaleDateString("en-PH") : "N/A"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Breakdowns */}
+                {selectedPublishedQuiz.questions && selectedPublishedQuiz.questions.length > 0 && (
+                  <div className="pt-3 border-t border-gray-100 grid grid-cols-2 gap-4">
+                    {/* Types */}
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 mb-1">Question Types</p>
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-600">Multiple Choice</span>
+                          <span className="font-medium">{selectedPublishedQuiz.questions.filter(q => q.type === 'multiple_choice').length}</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-600">True/False</span>
+                          <span className="font-medium">{selectedPublishedQuiz.questions.filter(q => q.type === 'true_false').length}</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-600">Identification</span>
+                          <span className="font-medium">{selectedPublishedQuiz.questions.filter(q => q.type === 'identification').length}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Difficulty */}
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 mb-1">Difficulty</p>
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-green-600">Easy</span>
+                          <span className="font-medium">{selectedPublishedQuiz.questions.filter(q => q.difficulty === 'easy').length}</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-yellow-600">Average</span>
+                          <span className="font-medium">{selectedPublishedQuiz.questions.filter(q => q.difficulty === 'average').length}</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-red-600">Difficult</span>
+                          <span className="font-medium">{selectedPublishedQuiz.questions.filter(q => q.difficulty === 'difficult').length}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+
+                {selectedPublishedQuiz.classificationStats && (
+                  <div className="pt-3 border-t border-gray-100">
+                    <p className="text-xs font-semibold text-gray-500 mb-2">Bloom's Taxonomy:</p>
+                    <div className="flex gap-2">
+                      <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-md font-medium">
+                        HOTS: {selectedPublishedQuiz.classificationStats.hots_count} <span className="opacity-70">({selectedPublishedQuiz.classificationStats.hots_percentage}%)</span>
+                      </span>
+                      <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-md font-medium">
+                        LOTS: {selectedPublishedQuiz.classificationStats.lots_count} <span className="opacity-70">({selectedPublishedQuiz.classificationStats.lots_percentage}%)</span>
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Actions */}
+              <div className="flex flex-col gap-2 pt-3 border-t border-gray-200">
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setSelectedPublishedQuiz(null);
+                      navigate(`/teacher/edit-quiz/${selectedPublishedQuiz.id}`);
+                    }}
+                    className="flex-1 bg-blue-50 text-blue-600 border border-blue-200 font-semibold rounded-xl px-3 py-2.5 flex items-center justify-center gap-1 text-sm hover:bg-blue-100 transition"
+                  >
+                    <Pen className="w-4 h-4" /> Edit
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedPublishedQuiz(null);
+                      navigate(`/teacher/assign-quiz/${selectedPublishedQuiz.id}`);
+                    }}
+                    className="flex-1 bg-gray-100 text-gray-700 font-semibold rounded-xl px-3 py-2.5 flex items-center justify-center gap-1 text-sm hover:bg-gray-200 transition"
+                  >
+                    <Users className="w-4 h-4" /> Assign
+                  </button>
+                </div>
+                <button
+                  onClick={() => {
+                    setSelectedPublishedQuiz(null);
+                    handleDeleteQuiz(selectedPublishedQuiz.id, selectedPublishedQuiz.title);
+                  }}
+                  className="w-full bg-red-50 text-red-600 border border-red-200 px-3 py-2.5 rounded-xl hover:bg-red-100 transition flex items-center justify-center gap-2 text-sm font-semibold"
+                >
+                  <Trash2 className="w-4 h-4" /> Archive Quiz
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+
 
       {/* Synchronous Quizzes Section */}
       <div className="mb-8 bg-white rounded-2xl border border-gray-200 border-l-4 border-l-amber-400 shadow-sm p-6">

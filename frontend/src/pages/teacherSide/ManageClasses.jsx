@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPortal } from "react-dom";
-import { Upload, Loader2, CircleCheck, AlertCircle, X } from "lucide-react";
+import { Upload, Loader2, CircleCheck, AlertCircle, X, CheckCircle2, XCircle, AlertTriangle, Info, FileSpreadsheet, Download, FileText, HelpCircle } from "lucide-react";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import { auth, db } from "../../firebase/firebaseConfig";
@@ -237,6 +237,25 @@ export default function ManageClasses() {
   const authRef = useRef(null);
   const MAX_CLASSES = 8;
 
+  // Custom Alert Dialog state
+  const [alertDialog, setAlertDialog] = useState({
+    isOpen: false,
+    type: "info", // "success" | "error" | "warning" | "info"
+    title: "",
+    message: "",
+    onClose: null, // optional callback when dialog closes
+  });
+
+  const showAlert = (type, title, message, onClose = null) => {
+    setAlertDialog({ isOpen: true, type, title, message, onClose });
+  };
+
+  const closeAlert = () => {
+    const cb = alertDialog.onClose;
+    setAlertDialog({ isOpen: false, type: "info", title: "", message: "", onClose: null });
+    if (cb) cb();
+  };
+
   // Check class count on component mount
   useEffect(() => {
     checkClassLimit();
@@ -433,12 +452,12 @@ export default function ManageClasses() {
 
     const user = auth.currentUser;
     if (!user) {
-      alert("❌ Please log in first!");
+      showAlert("error", "Not Logged In", "Please log in first!");
       return;
     }
 
     if (isLimitReached) {
-      alert(`❌ Class Limit Reached!\n\nYou have reached the maximum limit of ${MAX_CLASSES} classes.\n\nPlease delete an existing class before adding a new one.`);
+      showAlert("warning", "Class Limit Reached", `You have reached the maximum limit of ${MAX_CLASSES} classes.\n\nPlease delete an existing class before adding a new one.`);
       return;
     }
 
@@ -451,7 +470,7 @@ export default function ManageClasses() {
     const missingHeaders = requiredHeaders.filter(h => !availableHeaders.includes(h));
 
     if (missingHeaders.length > 0) {
-      alert(`❌ Missing columns: ${missingHeaders.join(", ")}\n\nAvailable columns: ${availableHeaders.join(", ")}\n\nPlease check your file format.`);
+      showAlert("error", "Missing Columns", `Missing columns: ${missingHeaders.join(", ")}\n\nAvailable columns: ${availableHeaders.join(", ")}\n\nPlease check your file format.`);
       return;
     }
 
@@ -460,7 +479,7 @@ export default function ManageClasses() {
     );
 
     if (validStudents.length === 0) {
-      alert("❌ No valid student data found in file");
+      showAlert("error", "No Valid Data", "No valid student data found in file.");
       return;
     }
 
@@ -470,7 +489,7 @@ export default function ManageClasses() {
       setUploadProgress("Validating class information...");
       const classNoExists = await checkClassNoExists(classInfo.classNo);
       if (classNoExists) {
-        alert(`❌ Duplicate Class No. Detected!\n\nClass No. "${classInfo.classNo}" already exists in your classes.\n\nEach class must have a unique Class No.`);
+        showAlert("warning", "Duplicate Class No.", `Class No. "${classInfo.classNo}" already exists in your classes.\n\nEach class must have a unique Class No.`);
         setFileName("");
         setUploadProgress("");
         return;
@@ -494,13 +513,13 @@ export default function ManageClasses() {
     try {
       const user = auth.currentUser;
       if (!user) {
-        alert("❌ Please log in first!");
+        showAlert("error", "Not Logged In", "Please log in first!");
         return;
       }
 
       // Double-check class limit before upload
       if (isLimitReached) {
-        alert(`❌ Class Limit Reached!\n\nYou have reached the maximum limit of ${MAX_CLASSES} classes.`);
+        showAlert("warning", "Class Limit Reached", `You have reached the maximum limit of ${MAX_CLASSES} classes.`);
         setUploading(false);
         setUploadProgress("");
         return;
@@ -596,15 +615,17 @@ export default function ManageClasses() {
       setUploadCount(totalCount);
 
       if (totalCount > 0) {
-        let message = `✅ Upload Complete!\n\n`;
-        message += `✨ New students: ${newStudentCount}\n`;
-        message += `🔗 Added to existing: ${addedToExistingCount}\n`;
+        let message = `New students: ${newStudentCount}\nAdded to existing: ${addedToExistingCount}`;
 
         if (errorCount > 0) {
-          message += `❌ Errors: ${errorCount}`;
+          message += `\nErrors: ${errorCount}`;
         }
 
-        alert(message);
+        const classDocId = classDoc.id;
+        showAlert("success", "Upload Complete!", message, () => {
+          // Navigate after closing
+          navigate(`/teacher/class/${classDocId}`);
+        });
 
         // Update class count
         await checkClassLimit();
@@ -612,11 +633,6 @@ export default function ManageClasses() {
         // Trigger real-time update
         console.log("📢 Dispatching classesUpdated event...");
         window.dispatchEvent(new Event('classesUpdated'));
-
-        // Navigate to new class
-        setTimeout(() => {
-          navigate(`/teacher/class/${classDoc.id}`);
-        }, 500);
       } else {
         throw new Error("No students were uploaded successfully");
       }
@@ -630,7 +646,7 @@ export default function ManageClasses() {
     } catch (error) {
       console.error("Error saving to Firestore:", error);
       setErrorMessage(error.message);
-      alert("❌ Failed to upload data: " + error.message);
+      showAlert("error", "Upload Failed", "Failed to upload data: " + error.message);
     } finally {
       setUploading(false);
       setUploadProgress("");
@@ -645,7 +661,7 @@ export default function ManageClasses() {
 
   const handleFileUpload = (e) => {
     if (isLimitReached) {
-      alert(`❌ Class Limit Reached!\n\nYou have reached the maximum limit of ${MAX_CLASSES} classes.\n\nPlease delete an existing class before adding a new one.`);
+      showAlert("warning", "Class Limit Reached", `You have reached the maximum limit of ${MAX_CLASSES} classes.\n\nPlease delete an existing class before adding a new one.`);
       e.target.value = "";
       return;
     }
@@ -672,7 +688,7 @@ export default function ManageClasses() {
         error: function (error) {
           console.error("CSV parsing error:", error);
           setErrorMessage("Failed to parse CSV file: " + error.message);
-          alert("❌ Failed to parse CSV file. Please check the file format.");
+          showAlert("error", "CSV Parse Error", "Failed to parse CSV file. Please check the file format.");
         }
       });
     } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
@@ -728,20 +744,20 @@ export default function ManageClasses() {
         } catch (error) {
           console.error("XLSX parsing error:", error);
           setErrorMessage("Failed to parse Excel file: " + error.message);
-          alert("❌ Failed to parse Excel file. Please check the file format.");
+          showAlert("error", "Excel Parse Error", "Failed to parse Excel file. Please check the file format.");
         }
       };
 
       reader.onerror = (error) => {
         console.error("File reading error:", error);
         setErrorMessage("Failed to read file");
-        alert("❌ Failed to read file");
+        showAlert("error", "File Read Error", "Failed to read the file. Please try again.");
       };
 
       reader.readAsArrayBuffer(file);
     } else {
       setErrorMessage("Unsupported file format. Please upload CSV or XLSX files only.");
-      alert("❌ Unsupported file format. Please upload CSV or XLSX files only.");
+      showAlert("error", "Unsupported Format", "Unsupported file format. Please upload CSV or XLSX files only.");
       e.target.value = "";
     }
   };
@@ -783,13 +799,13 @@ export default function ManageClasses() {
         </div>
       )}
 
-      <div className={`border-2 border-dashed rounded-3xl p-10 ${isLimitReached ? 'border-gray-200 bg-gray-50 opacity-60' : 'border-gray-300'}`}>
+      <div className={`border-2 border-dashed rounded-3xl p-5 ${isLimitReached ? 'border-gray-200 bg-gray-50 opacity-60' : 'border-gray-300'}`}>
         <div className="text-center">
-          <Upload className={`mx-auto w-10 h-10 mb-3 ${isLimitReached ? 'text-gray-300' : 'text-gray-400'}`} />
-          <p className={`mb-3 ${isLimitReached ? 'text-gray-400' : 'text-subtext'}`}>
+          <Upload className={`mx-auto w-10 h-10 mb-2 ${isLimitReached ? 'text-gray-300' : 'text-gray-400'}`} />
+          <p className={`mb-2 ${isLimitReached ? 'text-gray-400' : 'text-subtext'}`}>
             {isLimitReached ? 'Class limit reached - Delete a class to add new ones' : 'Upload your classlist (.csv or .xlsx)'}
           </p>
-          <p className={`text-sm mb-3 ${isLimitReached ? 'text-gray-400' : 'text-subtext'}`}>
+          <p className={`text-sm mb-4 ${isLimitReached ? 'text-gray-400' : 'text-subtext'}`}>
             Required columns: No, Student No., Name, Gender, Program, Year, Email Address, Contact No.
           </p>
 
@@ -804,14 +820,14 @@ export default function ManageClasses() {
 
           <label
             htmlFor="file-upload"
-            className={`inline-block px-6 py-3 font-semibold rounded-lg transition ${uploading || isLimitReached
-              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              : 'bg-blue-600 text-white cursor-pointer active:scale-95 hover:scale-105 transition duration-200 hover:bg-blue-700'
+            className={`inline-block px-8 py-3.5 font-bold rounded-xl transition shadow-lg hover:shadow-xl transform active:scale-95 ${uploading || isLimitReached
+              ? 'bg-gray-300 text-gray-500 cursor-not-allowed shadow-none'
+              : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white cursor-pointer hover:from-blue-700 hover:to-indigo-700'
               }`}
           >
             {uploading ? (
               <span className="flex items-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 className="w-5 h-5 animate-spin" />
                 Uploading...
               </span>
             ) : isLimitReached ? (
@@ -822,15 +838,22 @@ export default function ManageClasses() {
           </label>
 
           {fileName && !uploading && !showConfirmationModal && (
-            <p className="text-sm text-subtext italic mt-3">Selected: {fileName}</p>
+            <div className="mt-3">
+              <p className="text-sm text-subtext italic font-medium bg-blue-50 inline-block px-4 py-1 rounded-full border border-blue-100">
+                Selected: {fileName}
+              </p>
+            </div>
           )}
 
           {uploadProgress && uploading && (
-            <p className="text-sm text-blue-500 font-medium mt-3">
+            <p className="text-sm text-blue-600 font-bold mt-3 animate-pulse">
               {uploadProgress}
             </p>
           )}
+
         </div>
+
+
 
         {errorMessage && (
           <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
@@ -849,6 +872,31 @@ export default function ManageClasses() {
         )}
       </div>
 
+      {/* Download Template Link - Outside Container */}
+      {!isLimitReached && (
+        <div className="mt-8 text-center">
+          <button
+            onClick={() => {
+              const csvContent = "No,Student No.,Name,Gender,Program,Year,Email Address,Contact No.\n1,2024-0001,Dela Cruz Juan,Male,BSIT,1st,juan@example.com,09123456789";
+              const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+              const link = document.createElement("a");
+              const url = URL.createObjectURL(blob);
+              link.setAttribute("href", url);
+              link.setAttribute("download", "class_template.csv");
+              link.style.visibility = 'hidden';
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              showAlert("info", "Template Downloaded", "The class list template has been downloaded.");
+            }}
+            className="text-sm text-gray-400 hover:text-blue-600 font-medium transition-colors flex items-center justify-center gap-2 mx-auto py-2 px-4 rounded-lg hover:bg-gray-50 bg-white border border-gray-100 shadow-sm"
+          >
+            <Download size={14} />
+            Download Sample Reference
+          </button>
+        </div>
+      )}
+
       {mounted && createPortal(
         <ClassConfirmationModal
           isOpen={showConfirmationModal}
@@ -857,6 +905,43 @@ export default function ManageClasses() {
           onConfirm={confirmAndUpload}
           onCancel={cancelConfirmation}
         />,
+        document.body
+      )}
+
+      {/* Custom Alert Dialog */}
+      {alertDialog.isOpen && createPortal(
+        <div className="font-Outfit fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] animate-fadeIn">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4 animate-slideUp">
+            <div className="flex flex-col items-center text-center">
+              <div className={`p-4 rounded-full flex items-center justify-center mb-4 ${alertDialog.type === "success" ? "bg-green-100" :
+                alertDialog.type === "error" ? "bg-red-100" :
+                  alertDialog.type === "warning" ? "bg-orange-100" :
+                    "bg-blue-100"
+                }`}>
+                {alertDialog.type === "success" && <CheckCircle2 className="text-green-600" size={32} />}
+                {alertDialog.type === "error" && <XCircle className="text-red-600" size={32} />}
+                {alertDialog.type === "warning" && <AlertTriangle className="text-orange-600" size={32} />}
+                {alertDialog.type === "info" && <Info className="text-blue-600" size={32} />}
+              </div>
+
+              <h3 className="text-xl font-bold text-title mb-2">{alertDialog.title}</h3>
+              <p className="text-subtext text-sm whitespace-pre-line leading-relaxed px-2">
+                {alertDialog.message}
+              </p>
+
+              <button
+                onClick={closeAlert}
+                className={`w-full mt-6 py-3 rounded-xl font-bold text-sm uppercase tracking-wide active:scale-95 hover:scale-105 duration-200 transition shadow-lg ${alertDialog.type === "success" ? "bg-green-600 text-white hover:bg-green-700 shadow-green-200" :
+                  alertDialog.type === "error" ? "bg-red-600 text-white hover:bg-red-700 shadow-red-200" :
+                    alertDialog.type === "warning" ? "bg-orange-500 text-white hover:bg-orange-600 shadow-orange-200" :
+                      "bg-blue-600 text-white hover:bg-blue-700 shadow-blue-200"
+                  }`}
+              >
+                Okay
+              </button>
+            </div>
+          </div>
+        </div>,
         document.body
       )}
     </div>

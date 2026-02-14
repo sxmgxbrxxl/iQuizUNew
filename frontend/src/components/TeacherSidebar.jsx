@@ -12,10 +12,7 @@ import {
   BarChart3,
   LogOut,
   Home,
-  ChevronLeft,
-  ChevronRight,
   ChevronDown,
-  ChevronUp,
   Plus,
   Archive,
   User,
@@ -177,6 +174,9 @@ export default function Sidebar({ user, userDoc }) {
   const userEmail = userDoc?.email || user?.email || userDoc?.teacherEmail || "Educator";
   const userInitial = userName.charAt(0).toUpperCase();
 
+  // Staggered animation delay helper
+  const staggerDelay = (index) => ({ animationDelay: `${index * 0.06}s`, animationFillMode: 'both' });
+
   return (
     <>
       {/* Top Bar */}
@@ -275,10 +275,18 @@ export default function Sidebar({ user, userDoc }) {
         </div>
       </div>
 
+      {/* Mobile Overlay Backdrop */}
+      {isMobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/30 backdrop-blur-sm z-30 lg:hidden animate-overlayFade"
+          onClick={() => setIsMobileOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
       <div
         ref={sidebarRef}
-        className={`fixed top-16 left-0 h-[calc(100vh-64px)] bg-white border-r border-gray-200 shadow-sm transition-all duration-300 ease-in-out z-40 flex flex-col
+        className={`fixed top-16 left-0 h-[calc(100vh-64px)] bg-white border-r border-gray-200 shadow-xl transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] z-40 flex flex-col
         ${isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
         ${isCollapsed ? "lg:w-20" : "lg:w-72"}
         w-72`}
@@ -292,7 +300,7 @@ export default function Sidebar({ user, userDoc }) {
             }`}
         >
           <div className="flex flex-col space-y-3">
-            {menuItems.map((item) => (
+            {menuItems.map((item, index) => (
               <Link
                 key={item.to}
                 to={item.to}
@@ -303,16 +311,20 @@ export default function Sidebar({ user, userDoc }) {
                   }
                 }}
                 title={!shouldExpand ? item.label : ""}
-                className={`flex items-center relative overflow-hidden rounded-xl text-gray-700 transition-all duration-300 group
+                style={staggerDelay(index)}
+                className={`flex items-center relative overflow-hidden rounded-xl text-gray-700 transition-all duration-300 group animate-sidebarSlideIn
                 ${shouldExpand
-                    ? "gap-4 px-3 py-3 hover:bg-blue-50"
+                    ? "gap-4 px-3 py-3 hover:bg-blue-50 hover:shadow-md"
                     : "justify-center py-3 hover:bg-blue-50"
                   }
-                ${isActive(item.to) ? "bg-blue-50 text-blue-700 shadow-sm" : ""}`}
+                ${isActive(item.to) ? "bg-gradient-to-r from-blue-50 to-blue-100/60 text-blue-700 shadow-md ring-1 ring-blue-200/50" : ""}`}
               >
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-50/0 to-blue-50/50 translate-x-[-100%] group-hover:translate-x-0 transition-transform duration-300"></div>
-                <div className={`relative flex items-center justify-center w-10 h-10 group-hover:scale-110 transition-transform duration-300 ${isActive(item.to) ? "scale-110" : ""}`}>
-                  <item.icon size={22} className={isActive(item.to) ? "text-blue-600" : "text-gray-500 group-hover:text-blue-600"} />
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-50/0 to-blue-50/50 translate-x-[-100%] group-hover:translate-x-0 transition-transform duration-500 ease-out"></div>
+                {isActive(item.to) && (
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-blue-600 rounded-r-full transition-all duration-300" />
+                )}
+                <div className={`relative flex items-center justify-center w-10 h-10 group-hover:scale-110 transition-all duration-300 ${isActive(item.to) ? "scale-110" : ""}`}>
+                  <item.icon size={22} className={`transition-colors duration-300 ${isActive(item.to) ? "text-blue-600" : "text-gray-500 group-hover:text-blue-600"}`} />
                 </div>
                 <span
                   className={`relative font-Outfit font-medium text-base transition-all duration-300 whitespace-nowrap ${shouldExpand
@@ -333,16 +345,20 @@ export default function Sidebar({ user, userDoc }) {
                   }
                 }}
                 title={!shouldExpand ? "Classes" : ""}
-                className={`flex items-center relative overflow-hidden rounded-xl text-gray-700 transition-all duration-300 group w-full
+                style={staggerDelay(1)}
+                className={`flex items-center relative overflow-hidden rounded-xl text-gray-700 transition-all duration-300 group w-full animate-sidebarSlideIn
                 ${shouldExpand
-                    ? "gap-4 px-3 py-3 hover:bg-blue-50"
+                    ? "gap-4 px-3 py-3 hover:bg-blue-50 hover:shadow-md"
                     : "justify-center py-3 hover:bg-blue-50"
                   }
-                ${location.pathname.includes('/teacher/class') && !location.pathname.includes('/archive') ? "bg-blue-50 text-blue-700 shadow-sm" : ""}`}
+                ${location.pathname.includes('/teacher/class') && !location.pathname.includes('/archive') ? "bg-gradient-to-r from-blue-50 to-blue-100/60 text-blue-700 shadow-md ring-1 ring-blue-200/50" : ""}`}
               >
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-50/0 to-blue-50/50 translate-x-[-100%] group-hover:translate-x-0 transition-transform duration-300"></div>
-                <div className={`relative flex items-center justify-center w-10 h-10 group-hover:scale-110 transition-transform duration-300 ${location.pathname.includes('/teacher/class') && !location.pathname.includes('/archive') ? "scale-110" : ""}`}>
-                  <BookOpen size={22} className={location.pathname.includes('/teacher/class') && !location.pathname.includes('/archive') ? "text-blue-600" : "text-gray-500 group-hover:text-blue-600"} />
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-50/0 to-blue-50/50 translate-x-[-100%] group-hover:translate-x-0 transition-transform duration-500 ease-out"></div>
+                {(location.pathname.includes('/teacher/class') && !location.pathname.includes('/archive')) && (
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-blue-600 rounded-r-full transition-all duration-300" />
+                )}
+                <div className={`relative flex items-center justify-center w-10 h-10 group-hover:scale-110 transition-all duration-300 ${location.pathname.includes('/teacher/class') && !location.pathname.includes('/archive') ? "scale-110" : ""}`}>
+                  <BookOpen size={22} className={`transition-colors duration-300 ${location.pathname.includes('/teacher/class') && !location.pathname.includes('/archive') ? "text-blue-600" : "text-gray-500 group-hover:text-blue-600"}`} />
                 </div>
                 <span
                   className={`relative font-Outfit font-medium text-base transition-all duration-300 whitespace-nowrap flex-1 text-left ${shouldExpand
@@ -355,33 +371,33 @@ export default function Sidebar({ user, userDoc }) {
                 {shouldExpand && (
                   <div className="relative flex items-center gap-2">
                     {classes.length > 0 && (
-                      <span className="bg-blue-100 text-blue-600 text-xs font-bold font-Outfit px-2 py-0.5 rounded-full min-w-[20px] text-center">
+                      <span className="bg-blue-100 text-blue-600 text-xs font-bold font-Outfit px-2 py-0.5 rounded-full min-w-[20px] text-center transition-transform duration-300 group-hover:scale-110">
                         {classes.length}
                       </span>
                     )}
-                    <div className={`transition-transform duration-200 ${classesOpen ? "rotate-180" : ""}`}>
-                      <ChevronDown size={18} className="text-gray-400" />
+                    <div className={`transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${classesOpen ? "rotate-180" : ""}`}>
+                      <ChevronDown size={18} className="text-gray-400 group-hover:text-blue-500 transition-colors duration-300" />
                     </div>
                   </div>
                 )}
               </button>
 
               {shouldExpand && classesOpen && (
-                <div className="mt-1 ml-3 border-l-2 border-blue-200 pl-3 animate-fadeIn">
+                <div className="mt-1 ml-3 border-l-2 border-blue-200 pl-3 animate-expandDown overflow-hidden">
                   {/* Add Class Button */}
                   <Link
                     to="/teacher/classes/add"
                     onClick={() => setIsMobileOpen(false)}
-                    className="flex items-center gap-3 px-3 py-2.5 my-1 rounded-lg text-blue-600 hover:bg-blue-50 transition-all duration-200 group"
+                    className="flex items-center gap-3 px-3 py-2.5 my-1 rounded-lg text-blue-600 hover:bg-blue-50 hover:shadow-sm transition-all duration-200 group animate-popIn"
                   >
-                    <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center group-hover:bg-blue-200 transition-colors duration-200 flex-shrink-0">
-                      <Plus size={16} className="text-blue-600 group-hover:scale-110 transition-transform" />
+                    <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center group-hover:bg-blue-200 group-hover:rotate-90 transition-all duration-300 flex-shrink-0">
+                      <Plus size={16} className="text-blue-600" />
                     </div>
                     <span className="font-Outfit text-sm font-semibold">Add Class</span>
                   </Link>
 
                   {classes.length === 0 && (
-                    <div className="px-3 py-3 text-gray-400 text-sm italic font-Outfit text-center">
+                    <div className="px-3 py-3 text-gray-400 text-sm italic font-Outfit text-center animate-fadeIn">
                       No classes yet
                     </div>
                   )}
@@ -396,10 +412,11 @@ export default function Sidebar({ user, userDoc }) {
                         msOverflowStyle: 'none'
                       }}
                     >
-                      {classes.map((cls) => (
+                      {classes.map((cls, idx) => (
                         <div
                           key={cls.id}
-                          className="relative"
+                          className="relative animate-sidebarSlideIn"
+                          style={staggerDelay(idx)}
                           onMouseEnter={(e) => {
                             const rect = e.currentTarget.getBoundingClientRect();
                             setHoveredClass(cls.id);
@@ -414,24 +431,24 @@ export default function Sidebar({ user, userDoc }) {
                               setHoveredClass(null);
                             }}
                             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group ${isClassActive(cls.id)
-                              ? "bg-blue-50 text-blue-700"
-                              : "text-gray-600 hover:bg-gray-50 hover:text-gray-800"
+                              ? "bg-blue-50 text-blue-700 shadow-sm"
+                              : "text-gray-600 hover:bg-gray-50 hover:text-gray-800 hover:translate-x-1"
                               }`}
                           >
-                            <div className={`w-2 h-2 rounded-full flex-shrink-0 transition-all duration-200 ${isClassActive(cls.id) ? "bg-blue-500 scale-125" : "bg-green-400 group-hover:scale-125"
+                            <div className={`w-2 h-2 rounded-full flex-shrink-0 transition-all duration-300 ${isClassActive(cls.id) ? "bg-blue-500 scale-125 animate-activePulse" : "bg-green-400 group-hover:scale-150 group-hover:bg-blue-400"
                               }`}></div>
                             <div className="flex flex-col flex-1 min-w-0">
                               <span className="font-Outfit text-sm font-medium truncate">
                                 {cls.code || "No Code"}
                               </span>
-                              <span className={`font-Outfit text-xs truncate ${isClassActive(cls.id) ? "text-blue-500" : "text-gray-400"
+                              <span className={`font-Outfit text-xs truncate transition-colors duration-200 ${isClassActive(cls.id) ? "text-blue-500" : "text-gray-400"
                                 }`}>
                                 Section {cls.classNo || "—"}
                               </span>
                             </div>
-                            <span className={`text-xs font-Outfit font-medium flex-shrink-0 px-1.5 py-0.5 rounded-md ${isClassActive(cls.id)
+                            <span className={`text-xs font-Outfit font-medium flex-shrink-0 px-1.5 py-0.5 rounded-md transition-all duration-200 ${isClassActive(cls.id)
                               ? "bg-blue-100 text-blue-600"
-                              : "bg-gray-100 text-gray-500"
+                              : "bg-gray-100 text-gray-500 group-hover:bg-blue-100 group-hover:text-blue-600"
                               }`}>
                               {cls.studentCount || 0}
                             </span>
@@ -444,7 +461,7 @@ export default function Sidebar({ user, userDoc }) {
               )}
             </div>
 
-            {otherMenuItems.map((item) => (
+            {otherMenuItems.map((item, index) => (
               <Link
                 key={item.to}
                 to={item.to}
@@ -455,16 +472,20 @@ export default function Sidebar({ user, userDoc }) {
                   }
                 }}
                 title={!shouldExpand ? item.label : ""}
-                className={`flex items-center relative overflow-hidden rounded-xl text-gray-700 transition-all duration-300 group
+                style={staggerDelay(index + 2)}
+                className={`flex items-center relative overflow-hidden rounded-xl text-gray-700 transition-all duration-300 group animate-sidebarSlideIn
                 ${shouldExpand
-                    ? "gap-4 px-3 py-3 hover:bg-blue-50"
+                    ? "gap-4 px-3 py-3 hover:bg-blue-50 hover:shadow-md"
                     : "justify-center py-3 hover:bg-blue-50"
                   }
-                ${isActive(item.to) ? "bg-blue-50 text-blue-700 shadow-sm" : ""}`}
+                ${isActive(item.to) ? "bg-gradient-to-r from-blue-50 to-blue-100/60 text-blue-700 shadow-md ring-1 ring-blue-200/50" : ""}`}
               >
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-50/0 to-blue-50/50 translate-x-[-100%] group-hover:translate-x-0 transition-transform duration-300"></div>
-                <div className={`relative flex items-center justify-center w-10 h-10 group-hover:scale-110 transition-transform duration-300 ${isActive(item.to) ? "scale-110" : ""}`}>
-                  <item.icon size={22} className={isActive(item.to) ? "text-blue-600" : "text-gray-500 group-hover:text-blue-600"} />
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-50/0 to-blue-50/50 translate-x-[-100%] group-hover:translate-x-0 transition-transform duration-500 ease-out"></div>
+                {isActive(item.to) && (
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-blue-600 rounded-r-full transition-all duration-300" />
+                )}
+                <div className={`relative flex items-center justify-center w-10 h-10 group-hover:scale-110 transition-all duration-300 ${isActive(item.to) ? "scale-110" : ""}`}>
+                  <item.icon size={22} className={`transition-colors duration-300 ${isActive(item.to) ? "text-blue-600" : "text-gray-500 group-hover:text-blue-600"}`} />
                 </div>
                 <span
                   className={`relative font-Outfit font-medium text-base transition-all duration-300 whitespace-nowrap ${shouldExpand
@@ -485,16 +506,20 @@ export default function Sidebar({ user, userDoc }) {
                   }
                 }}
                 title={!shouldExpand ? "Archives" : ""}
-                className={`flex items-center relative overflow-hidden rounded-xl text-gray-700 transition-all duration-300 group w-full
+                style={staggerDelay(4)}
+                className={`flex items-center relative overflow-hidden rounded-xl text-gray-700 transition-all duration-300 group w-full animate-sidebarSlideIn
                 ${shouldExpand
-                    ? "gap-4 px-3 py-3 hover:bg-blue-50"
+                    ? "gap-4 px-3 py-3 hover:bg-blue-50 hover:shadow-md"
                     : "justify-center py-3 hover:bg-blue-50"
                   }
-                ${location.pathname.includes('/teacher/archives') ? "bg-blue-50 text-blue-700 shadow-sm" : ""}`}
+                ${location.pathname.includes('/teacher/archives') ? "bg-gradient-to-r from-blue-50 to-blue-100/60 text-blue-700 shadow-md ring-1 ring-blue-200/50" : ""}`}
               >
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-50/0 to-blue-50/50 translate-x-[-100%] group-hover:translate-x-0 transition-transform duration-300"></div>
-                <div className={`relative flex items-center justify-center w-10 h-10 group-hover:scale-110 transition-transform duration-300 ${location.pathname.includes('/teacher/archives') ? "scale-110" : ""}`}>
-                  <Archive size={22} className={location.pathname.includes('/teacher/archives') ? "text-blue-600" : "text-gray-500 group-hover:text-blue-600"} />
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-50/0 to-blue-50/50 translate-x-[-100%] group-hover:translate-x-0 transition-transform duration-500 ease-out"></div>
+                {location.pathname.includes('/teacher/archives') && (
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-blue-600 rounded-r-full transition-all duration-300" />
+                )}
+                <div className={`relative flex items-center justify-center w-10 h-10 group-hover:scale-110 transition-all duration-300 ${location.pathname.includes('/teacher/archives') ? "scale-110" : ""}`}>
+                  <Archive size={22} className={`transition-colors duration-300 ${location.pathname.includes('/teacher/archives') ? "text-blue-600" : "text-gray-500 group-hover:text-blue-600"}`} />
                 </div>
                 <span
                   className={`relative font-Outfit font-medium text-base transition-all duration-300 whitespace-nowrap flex-1 text-left ${shouldExpand
@@ -506,34 +531,34 @@ export default function Sidebar({ user, userDoc }) {
                 </span>
                 {shouldExpand && (
                   <div className="relative">
-                    {archiveOpen ? (
-                      <ChevronUp size={18} className="text-gray-400" />
-                    ) : (
-                      <ChevronDown size={18} className="text-gray-400" />
-                    )}
+                    <div className={`transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${archiveOpen ? "rotate-180" : ""}`}>
+                      <ChevronDown size={18} className="text-gray-400 group-hover:text-blue-500 transition-colors duration-300" />
+                    </div>
                   </div>
                 )}
               </button>
 
               {shouldExpand && archiveOpen && (
-                <div className="mt-2 ml-4 space-y-2 border-l-2 border-blue-200 pl-4 animate-fadeIn">
+                <div className="mt-2 ml-4 space-y-2 border-l-2 border-blue-200 pl-4 animate-expandDown overflow-hidden">
                   <Link
                     to="/teacher/archives/classes"
                     onClick={() => setIsMobileOpen(false)}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 group ${location.pathname === '/teacher/archives/classes' ? 'bg-blue-50 text-blue-700' : ''
+                    style={staggerDelay(0)}
+                    className={`flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 hover:bg-blue-50 hover:text-blue-700 hover:translate-x-1 transition-all duration-200 group animate-sidebarSlideIn ${location.pathname === '/teacher/archives/classes' ? 'bg-blue-50 text-blue-700' : ''
                       }`}
                   >
-                    <BookOpen size={18} className="text-amber-500 group-hover:scale-110 transition-transform" />
+                    <BookOpen size={18} className="text-amber-500 group-hover:scale-110 transition-all duration-300" />
                     <span className="font-Outfit text-sm font-medium">Archived Classes</span>
                   </Link>
 
                   <Link
                     to="/teacher/archives/quizzes"
                     onClick={() => setIsMobileOpen(false)}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 group ${location.pathname === '/teacher/archives/quizzes' ? 'bg-blue-50 text-blue-700' : ''
+                    style={staggerDelay(1)}
+                    className={`flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 hover:bg-blue-50 hover:text-blue-700 hover:translate-x-1 transition-all duration-200 group animate-sidebarSlideIn ${location.pathname === '/teacher/archives/quizzes' ? 'bg-blue-50 text-blue-700' : ''
                       }`}
                   >
-                    <FileText size={18} className="text-amber-500 group-hover:scale-110 transition-transform" />
+                    <FileText size={18} className="text-amber-500 group-hover:scale-110 transition-all duration-300" />
                     <span className="font-Outfit text-sm font-medium">Archived Quizzes</span>
                   </Link>
                 </div>
