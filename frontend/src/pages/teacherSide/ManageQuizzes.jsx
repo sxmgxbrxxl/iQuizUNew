@@ -909,35 +909,36 @@ export default function ManageQuizzes() {
   // RENDER
   // -----------------------------------------------------------------
   return (
-    <div className="px-2 py-6 md:p-8 font-Outfit animate-fadeIn">
+    <div className="p-4 md:p-8 font-Outfit animate-fadeIn">
       {/* Header */}
-      <div className="flex flex-row gap-3 items-center">
-        <NotebookPen className="w-8 h-8 text-blue-600 mb-6" />
-        <div className="flex flex-col mb-6">
+      <div className="flex flex-col md:flex-row gap-3 items-start md:items-center mb-6">
+        <NotebookPen className="w-8 h-8 text-blue-600 hidden md:block" />
+        <div className="flex flex-col">
           <h2 className="text-2xl font-bold text-title flex items-center gap-2">
+            <NotebookPen className="w-6 h-6 text-blue-600 md:hidden" />
             Manage Quizzes
           </h2>
-          <p className="text-md font-light text-subtext">
+          <p className="text-sm md:text-md font-light text-subtext">
             Create, edit, and organize your quizzes with ease.
           </p>
         </div>
       </div>
 
       {/* Create New Quiz */}
-      <div className="bg-white p-8 rounded-2xl border border-gray-200 shadow-sm mb-8 animate-slideIn">
+      <div className="bg-white p-6 md:p-8 rounded-2xl border border-gray-200 shadow-sm mb-8 animate-slideIn">
         <h3 className="text-xl text-title font-semibold mb-3">
           Create New Quiz
         </h3>
-        <div className="flex flex-wrap gap-4">
+        <div className="flex flex-col md:flex-row gap-3 md:gap-4">
           <button
             onClick={() => setShowPdfModal(true)}
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+            className="flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-3 md:py-2 rounded-lg hover:bg-blue-700 transition w-full md:w-auto"
           >
             <FileUp className="w-5 h-5" /> Upload PDF (AI Generate)
           </button>
           <button
             onClick={openManualModal}
-            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition"
+            className="flex items-center justify-center gap-2 bg-green-600 text-white px-4 py-3 md:py-2 rounded-lg hover:bg-green-700 transition w-full md:w-auto"
           >
             <PlusCircle className="w-5 h-5" /> Manual Quiz Creation
           </button>
@@ -958,7 +959,7 @@ export default function ManageQuizzes() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-5">
               {publishedQuizzes
                 .slice((publishedPage - 1) * ITEMS_PER_PAGE, publishedPage * ITEMS_PER_PAGE)
                 .map((q) => (
@@ -989,7 +990,7 @@ export default function ManageQuizzes() {
       {/* Published Quiz Detail Dialog */}
       {mounted && selectedPublishedQuiz && createPortal(
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 font-Outfit animate-fadeIn" onClick={() => setSelectedPublishedQuiz(null)}>
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl animate-slideUp" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl w-[95%] md:w-full max-w-md shadow-2xl animate-slideUp" onClick={(e) => e.stopPropagation()}>
             {/* Dialog Header */}
             <div className="flex items-center justify-between p-5 border-b border-gray-100 bg-blue-50/50">
               <div className="flex items-center gap-2">
@@ -1143,7 +1144,7 @@ export default function ManageQuizzes() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-5">
               {synchronousQuizzes
                 .slice((syncPage - 1) * ITEMS_PER_PAGE, syncPage * ITEMS_PER_PAGE)
                 .map((a) => (
@@ -1188,7 +1189,7 @@ export default function ManageQuizzes() {
       {/* Sync Quiz Detail Dialog */}
       {mounted && selectedSyncQuiz && createPortal(
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 font-Outfit animate-fadeIn" onClick={() => setSelectedSyncQuiz(null)}>
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl animate-slideUp" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl w-[95%] md:w-full max-w-md shadow-2xl animate-slideUp" onClick={(e) => e.stopPropagation()}>
             {/* Dialog Header */}
             <div className="flex items-center justify-between p-5 border-b border-gray-100 bg-amber-50/50">
               <div className="flex items-center gap-2">
@@ -1325,7 +1326,7 @@ export default function ManageQuizzes() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-5">
               {assignedQuizzes
                 .slice((asyncPage - 1) * ITEMS_PER_PAGE, asyncPage * ITEMS_PER_PAGE)
                 .map((a) => (
@@ -1366,7 +1367,7 @@ export default function ManageQuizzes() {
       {
         mounted && selectedAsyncQuiz && createPortal(
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 font-Outfit animate-fadeIn" onClick={() => setSelectedAsyncQuiz(null)}>
-            <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl animate-slideUp" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-white rounded-2xl w-[95%] md:w-full max-w-md shadow-2xl animate-slideUp" onClick={(e) => e.stopPropagation()}>
               {/* Dialog Header */}
               <div className="flex items-center justify-between p-5 border-b border-gray-100 bg-violet-50/50">
                 <div className="flex items-center gap-2">
@@ -1462,10 +1463,10 @@ export default function ManageQuizzes() {
       {/* Manual Quiz Creation Modal */}
       {
         mounted && showManualModal && createPortal(
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 font-Outfit animate-fadeIn">
-            <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col animate-slideUp">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 md:p-4 font-Outfit animate-fadeIn">
+            <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[95vh] md:max-h-[90vh] flex flex-col animate-slideUp">
               {/* Header */}
-              <div className="flex justify-between items-center p-6 border-b bg-gradient-to-r from-blue-600 to-blue-400 text-white rounded-t-2xl">
+              <div className="flex justify-between items-center p-4 md:p-6 border-b bg-gradient-to-r from-blue-600 to-blue-400 text-white rounded-t-2xl">
                 <div className="flex items-center gap-3">
                   <PlusCircle className="w-8 h-8" />
                   <div>
@@ -1571,7 +1572,7 @@ export default function ManageQuizzes() {
                         </div>
 
                         {/* Points and Classification */}
-                        <div className="grid grid-cols-4 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                           <div>
                             <label className="block text-sm font-semibold mb-2">
                               Points
@@ -1796,17 +1797,17 @@ export default function ManageQuizzes() {
               </div>
 
               {/* Footer */}
-              <div className="border-t p-6 bg-gray-50 rounded-b-2xl flex gap-3">
+              <div className="border-t p-4 md:p-6 bg-gray-50 rounded-b-2xl flex flex-col-reverse md:flex-row gap-3">
                 <button
                   onClick={closeManualModal}
-                  className="px-6 py-3 border-2 border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-100 transition"
+                  className="px-6 py-3 border-2 border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-100 transition w-full md:w-auto"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleCreateManualQuiz}
                   disabled={!manualQuizTitle.trim() || manualQuestions.length === 0}
-                  className="flex-1 px-6 py-3 bg-button text-white font-semibold rounded-lg hover:bg-buttonHover transition flex items-center justify-center gap-2 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  className="flex-1 px-6 py-3 bg-button text-white font-semibold rounded-lg hover:bg-buttonHover transition flex items-center justify-center gap-2 disabled:bg-gray-400 disabled:cursor-not-allowed w-full md:w-auto"
                 >
                   <Eye className="w-5 h-5" />
                   See Preview
@@ -1821,9 +1822,9 @@ export default function ManageQuizzes() {
       {/* PDF Modal */}
       {
         mounted && showPdfModal && createPortal(
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 font-Outfit animate-fadeIn">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 font-Outfit animate-fadeIn">
             <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col animate-slideUp">
-              <div className="flex justify-between items-center p-6 border-b bg-gradient-to-r from-blue-600 to-blue-400 text-white rounded-t-2xl">
+              <div className="flex justify-between items-center p-4 md:p-6 border-b bg-gradient-to-r from-blue-600 to-blue-400 text-white rounded-t-2xl">
                 <div className="flex items-center gap-3">
                   <FileUp className="w-8 h-8" />
                   <div>
@@ -1870,7 +1871,7 @@ export default function ManageQuizzes() {
                   )}
                 </div>
 
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-semibold mb-2">
                       Multiple Choice
@@ -1933,10 +1934,10 @@ export default function ManageQuizzes() {
       {/* Preview Modal */}
       {
         mounted && showPreviewModal && generatedQuiz && createPortal(
-          <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 font-Outfit animate-fadeIn">
-            <div className="bg-white rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col animate-slideUp">
+          <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-2 md:p-4 font-Outfit animate-fadeIn">
+            <div className="bg-white rounded-2xl w-full max-w-5xl max-h-[95vh] md:max-h-[90vh] flex flex-col animate-slideUp">
               {/* Header */}
-              <div className="flex justify-between items-center p-6 border-b bg-gradient-to-r from-blue-600 to-blue-400 text-white rounded-t-2xl">
+              <div className="flex justify-between items-center p-4 md:p-6 border-b bg-gradient-to-r from-blue-600 to-blue-400 text-white rounded-t-2xl">
                 <div className="flex-1">
                   {isEditingTitle ? (
                     <div className="flex items-center gap-2">
@@ -2020,8 +2021,8 @@ export default function ManageQuizzes() {
               </div>
 
               {/* Classification Filter Tabs */}
-              <div className="px-6 pt-6 pb-4 bg-gray-50 border-b">
-                <div className="flex items-center gap-2">
+              <div className="px-4 pt-4 pb-4 md:px-6 md:pt-6 bg-gray-50 border-b overflow-x-auto">
+                <div className="flex items-center gap-2 min-w-max">
                   <span className="text-sm font-semibold text-gray-700 mr-2">Filter by:</span>
                   <button
                     onClick={() => setClassificationFilter("ALL")}
@@ -2374,10 +2375,10 @@ export default function ManageQuizzes() {
               </div>
 
               {/* Footer */}
-              <div className="border-t p-6 bg-gray-50 rounded-b-2xl flex gap-3">
+              <div className="border-t p-4 md:p-6 bg-gray-50 rounded-b-2xl flex flex-col md:flex-row gap-3">
                 <button
                   onClick={closePreviewModal}
-                  className="px-6 py-3 border-2 border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-100 transition"
+                  className="px-6 py-3 border-2 border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-100 transition w-full md:w-auto"
                 >
                   Cancel
                 </button>
@@ -2434,7 +2435,7 @@ export default function ManageQuizzes() {
                     });
                   }}
                   disabled={loading}
-                  className="px-6 py-3 bg-orange-600 text-white font-semibold rounded-lg hover:bg-orange-700 transition flex items-center justify-center gap-2 disabled:bg-gray-400"
+                  className="px-6 py-3 bg-orange-600 text-white font-semibold rounded-lg hover:bg-orange-700 transition flex items-center justify-center gap-2 disabled:bg-gray-400 w-full md:w-auto"
                 >
                   {loading ? (
                     <>
@@ -2451,7 +2452,7 @@ export default function ManageQuizzes() {
                 <button
                   onClick={handleSaveQuiz}
                   disabled={publishing}
-                  className="flex-1 px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2 disabled:bg-gray-400"
+                  className="flex-1 px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2 disabled:bg-gray-400 w-full md:w-auto"
                 >
                   {publishing ? (
                     <>
