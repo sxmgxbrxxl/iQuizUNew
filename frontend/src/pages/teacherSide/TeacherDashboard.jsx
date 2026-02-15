@@ -56,7 +56,7 @@ export default function TeacherDashboard({ user, userDoc }) {
   // Live clock
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  const teacherId = userDoc?.id || user?.uid;
+  const teacherId = user?.uid;
 
   // Update clock every second
   useEffect(() => {

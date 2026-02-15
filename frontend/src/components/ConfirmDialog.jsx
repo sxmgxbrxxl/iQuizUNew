@@ -29,6 +29,7 @@ export default function ConfirmDialog({
     icon,
     color = "blue",
     loading = false,
+    showCancel = true,
 }) {
     useEffect(() => {
         if (!isOpen) return;
@@ -65,13 +66,15 @@ export default function ConfirmDialog({
                     <p className="text-gray-600 text-sm leading-relaxed ml-16">{message}</p>
                 </div>
                 <div className="px-6 py-4 bg-gray-50 flex gap-3 justify-end border-t border-gray-100">
-                    <button
-                        onClick={onCancel}
-                        disabled={loading}
-                        className="px-5 py-2.5 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-100 transition text-sm disabled:opacity-50"
-                    >
-                        {cancelLabel}
-                    </button>
+                    {showCancel && (
+                        <button
+                            onClick={onCancel}
+                            disabled={loading}
+                            className="px-5 py-2.5 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-100 transition text-sm disabled:opacity-50"
+                        >
+                            {cancelLabel}
+                        </button>
+                    )}
                     <button
                         onClick={onConfirm}
                         disabled={loading}

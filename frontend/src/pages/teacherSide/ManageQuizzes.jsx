@@ -466,7 +466,7 @@ export default function ManageQuizzes() {
     });
   };
 
-  const handleCreateManualQuiz = () => {
+  const handleCreateManualQuiz = async () => {
     if (!manualQuizTitle.trim()) {
       showToast("warning", "Missing Title", "Please enter a quiz title");
       return;
@@ -518,9 +518,11 @@ export default function ManageQuizzes() {
       }
     };
 
-    setGeneratedQuiz(quiz);
-    setShowManualModal(false);
-    setShowPreviewModal(true);
+    const success = await publishQuizToFirestore(quiz);
+    if (success) {
+      setShowManualModal(false);
+      fetchQuizzes();
+    }
   };
 
   // -----------------------------------------------------------------
@@ -534,12 +536,22 @@ export default function ManageQuizzes() {
 
   const handleGenerateQuiz = async () => {
     if (!selectedFile) return showToast("warning", "Missing File", "Please select a PDF file");
+    if (!quizTitle.trim()) return showToast("warning", "Missing Title", "Please enter a quiz title");
+
+    const mc = numMC === "" ? 0 : numMC;
+    const tf = numTF === "" ? 0 : numTF;
+    const id = numID === "" ? 0 : numID;
+
+    if (mc === 0 && tf === 0 && id === 0) {
+      return showToast("warning", "Invalid Questions", "Please enter at least one question count");
+    }
+
     setLoading(true);
     const fd = new FormData();
     fd.append("file", selectedFile);
-    fd.append("num_multiple_choice", numMC);
-    fd.append("num_true_false", numTF);
-    fd.append("num_identification", numID);
+    fd.append("num_multiple_choice", numMC === "" ? 0 : numMC);
+    fd.append("num_true_false", numTF === "" ? 0 : numTF);
+    fd.append("num_identification", numID === "" ? 0 : numID);
     fd.append("title", quizTitle || "Generated Quiz");
 
     try {
@@ -709,16 +721,16 @@ export default function ManageQuizzes() {
   };
 
   // -----------------------------------------------------------------
-  // PUBLISH QUIZ
+  // PUBLISH QUIZ HELPER
   // -----------------------------------------------------------------
-  const handleSaveQuiz = async () => {
-    if (!generatedQuiz) return;
+  const publishQuizToFirestore = async (quizObj) => {
+    if (!quizObj) return;
     const user = auth.currentUser;
     if (!user) return showToast("error", "Auth Required", "Please log in first!");
 
     setPublishing(true);
     try {
-      const totalPoints = generatedQuiz.questions.reduce(
+      const totalPoints = quizObj.questions.reduce(
         (s, q) => s + q.points,
         0
       );
@@ -726,29 +738,29 @@ export default function ManageQuizzes() {
         user.displayName || user.email?.split("@")[0] || "Teacher";
 
       const quizData = {
-        title: generatedQuiz.title,
+        title: quizObj.title,
         mode: "Published",
-        questions: generatedQuiz.questions,
+        questions: quizObj.questions,
         totalPoints,
-        classificationStats: generatedQuiz.classification_stats || {
-          hots_count: generatedQuiz.questions.filter(
+        classificationStats: quizObj.classification_stats || {
+          hots_count: quizObj.questions.filter(
             (q) => q.bloom_classification === "HOTS"
           ).length,
-          lots_count: generatedQuiz.questions.filter(
+          lots_count: quizObj.questions.filter(
             (q) => q.bloom_classification === "LOTS"
           ).length,
           hots_percentage: (
-            (generatedQuiz.questions.filter(
+            (quizObj.questions.filter(
               (q) => q.bloom_classification === "HOTS"
             ).length /
-              generatedQuiz.questions.length) *
+              quizObj.questions.length) *
             100
           ).toFixed(1),
           lots_percentage: (
-            (generatedQuiz.questions.filter(
+            (quizObj.questions.filter(
               (q) => q.bloom_classification === "LOTS"
             ).length /
-              generatedQuiz.questions.length) *
+              quizObj.questions.length) *
             100
           ).toFixed(1),
         },
@@ -761,19 +773,23 @@ export default function ManageQuizzes() {
       };
 
       await addDoc(collection(db, "quizzes"), quizData);
-      setShowPreviewModal(false);
-      setGeneratedQuiz(null);
-      await fetchQuizzes();
-      await addDoc(collection(db, "quizzes"), quizData);
-      setShowPreviewModal(false);
-      setGeneratedQuiz(null);
-      await fetchQuizzes();
       showToast("success", "Published!", "Quiz published successfully!");
+      return true;
     } catch (e) {
       console.error(e);
       showToast("error", "Error", "Publish error.");
+      return false;
     } finally {
       setPublishing(false);
+    }
+  };
+
+  const handleSaveQuiz = async () => {
+    const success = await publishQuizToFirestore(generatedQuiz);
+    if (success) {
+      setShowPreviewModal(false);
+      setGeneratedQuiz(null);
+      fetchQuizzes();
     }
   };
 
@@ -1806,11 +1822,20 @@ export default function ManageQuizzes() {
                 </button>
                 <button
                   onClick={handleCreateManualQuiz}
-                  disabled={!manualQuizTitle.trim() || manualQuestions.length === 0}
+                  disabled={!manualQuizTitle.trim() || manualQuestions.length === 0 || publishing}
                   className="flex-1 px-6 py-3 bg-button text-white font-semibold rounded-lg hover:bg-buttonHover transition flex items-center justify-center gap-2 disabled:bg-gray-400 disabled:cursor-not-allowed w-full md:w-auto"
                 >
-                  <Eye className="w-5 h-5" />
-                  See Preview
+                  {publishing ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Publishing...
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="w-5 h-5" />
+                      Publish Quiz
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -1877,11 +1902,17 @@ export default function ManageQuizzes() {
                       Multiple Choice
                     </label>
                     <input
-                      type="number"
-                      min="0"
-                      value={numMC}
-                      onChange={(e) => setNumMC(parseInt(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border rounded-lg"
+                      type="text"
+                      inputMode="numeric"
+                      value={numMC.toString()}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === "") setNumMC("");
+                        else if (/^\d*$/.test(val)) {
+                          setNumMC(parseInt(val, 10));
+                        }
+                      }}
+                      className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
@@ -1889,11 +1920,17 @@ export default function ManageQuizzes() {
                       True/False
                     </label>
                     <input
-                      type="number"
-                      min="0"
-                      value={numTF}
-                      onChange={(e) => setNumTF(parseInt(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border rounded-lg"
+                      type="text"
+                      inputMode="numeric"
+                      value={numTF.toString()}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === "") setNumTF("");
+                        else if (/^\d*$/.test(val)) {
+                          setNumTF(parseInt(val, 10));
+                        }
+                      }}
+                      className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
@@ -1901,11 +1938,17 @@ export default function ManageQuizzes() {
                       Identification
                     </label>
                     <input
-                      type="number"
-                      min="0"
-                      value={numID}
-                      onChange={(e) => setNumID(parseInt(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border rounded-lg"
+                      type="text"
+                      inputMode="numeric"
+                      value={numID.toString()}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === "") setNumID("");
+                        else if (/^\d*$/.test(val)) {
+                          setNumID(parseInt(val, 10));
+                        }
+                      }}
+                      className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                 </div>
